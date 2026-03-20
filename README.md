@@ -115,144 +115,20 @@ Then OpenClaw can make HTTP requests to `http://localhost:5000`.
 | POST | `/api/comp-off` | Add a comp-off day |
 | GET | `/api/projects` | List all projects |
 
-## Available Tools (16 Total)
-
-### Task Management
-- `create_task` - Create a new task with full options
-- `create_urgent_task` - Create high-priority urgent task
-- `add_to_project` - Add task to specific project
-- `create_recurring_task` - Create recurring task (daily/weekly/monthly/weekdays)
-- `batch_create_tasks` - Create multiple tasks at once
-- `complete_task` - Mark task as completed (by ID or title)
-- `delete_task` - Delete a task
-- `list_tasks` - List tasks with optional filters
-- `get_task_details` - Get detailed task information
-
-### Scheduling
-- `get_schedule` - Get schedule for a specific day
-- `get_schedule_suggestions` - Get AI-powered schedule suggestions
-- `update_routine` - Update work hours, lunch breaks, work days
-- `add_holiday` - Add holiday (scheduler avoids these)
-- `add_comp_off` - Add compensatory off day (treated as work day)
-
-### Reminders
-- `set_reminder` - Set reminder (unlimited!) with minutes_before or specific_time
-
-### Utilities
-- `list_projects` - List all available projects
-
-## Configuration
-
-Edit `config.json` to customize:
-
-```json
-{
-  "routine": {
-    "work_start": "09:00",
-    "work_end": "18:00",
-    "work_days": [0, 1, 2, 3, 4],  // Monday=0, Sunday=6
-    "lunch_start": "13:00",
-    "lunch_end": "14:00",
-    "sleep_start": "23:00",
-    "sleep_end": "07:00"
-  },
-  "holidays": ["2024-01-26", "2024-08-15"],
-  "comp_offs": [],
-  "default_task_duration": 30
-}
-```
-
-## CLI Commands (Manual Testing)
-
-```bash
-# Start API server
-python3 main.py serve 5000
-
-# Start stdio mode for OpenClaw
-python3 main.py stdio
-
-# Quick task creation
-python3 main.py create "Buy groceries"
-
-# List tasks
-python3 main.py list
-
-# Show today's tasks
-python3 main.py today
-
-# Get schedule suggestions
-python3 main.py schedule
-```
-
-## Data Storage
-
-- Tasks: `my_tasks.json`
-- Configuration: `config.json`
-
-Both use JSON format for easy inspection and backup.
-
-## Setting Up OpenClaw
-
-In your OpenClaw configuration, add a tool with:
-
-```yaml
-  task_manager:
-    type: local
-    command: python3
-    args: ["/home/sanchitingale339/task_manager/main.py", "stdio"]
-```
-
-The exact configuration depends on your OpenClaw setup. Consult OpenClaw's documentation for how to register a local tool that uses stdin/stdout JSON-RPC.
-
-## Testing Stdio Mode Manually
-
-You can test the stdio mode by piping JSON:
-
-```bash
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_tasks","arguments":{}}}' | python3 main.py stdio
-```
-
-## Notes
-
-- All dates should be in ISO format: `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SS`
-- Times use 24-hour format: `HH:MM`
-- Priority values: `LOW`, `MEDIUM`, `HIGH`, `URGENT`
-- Recurrence patterns: `DAILY`, `WEEKLY`, `MONTHLY`, `WEEKDAYS`
-- The reminder system runs in the background and checks every 30 seconds
-
-## Dependencies
-
-```bash
-pip install flask apscheduler pytz colorama
-```
-
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-repo/task-manager.git
+   git clone https://github.com/sanchit339/TaskAgent.git
    ```
 2. Navigate to the project directory:
    ```bash
-   cd task-manager
+   cd TaskAgent
    ```
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-
-## API Usage
-
-Start the API server:
-```bash
-python main.py serve
-```
-
-Access the API endpoints:
-- Create Task: `POST /api/tasks`
-- List Tasks: `GET /api/tasks`
-- Complete Task: `POST /api/tasks/<task_id>/complete`
-- Set Reminder: `POST /api/tasks/<task_id>/reminder`
 
 ## License
 
