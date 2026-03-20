@@ -1,0 +1,22 @@
+name: TaskManagerSkill
+version: 1.0.0
+description: A skill to manage tasks and reminders.
+auto_start: true
+entry_point: main.py
+tools:
+  - name: CreateTask
+    description: Create a new task.
+    endpoint: /api/tasks
+    method: POST
+  - name: ListTasks
+    description: List all tasks.
+    endpoint: /api/tasks
+    method: GET
+  - name: CompleteTask
+    description: Mark a task as completed.
+    endpoint: /api/tasks/<task_id>/complete
+    method: POST
+  - name: SetReminder
+    description: Set a reminder for a task.
+    endpoint: /api/tasks/<task_id>/reminder
+    method: POST
