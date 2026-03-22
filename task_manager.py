@@ -91,7 +91,34 @@ def legacy_result_response(result: Any, **kwargs) -> Dict[str, Any]:
     return {"result": result, **kwargs}
 
 
-# ... existing Priority and RecurrencePattern enums ...
+# =============================================================================
+# Enums
+# =============================================================================
+
+class Priority:
+    """Task priority levels"""
+    LOW = 0
+    MEDIUM = 1
+    HIGH = 2
+    URGENT = 3
+    
+    @classmethod
+    def from_string(cls, s: str):
+        """Convert string to Priority"""
+        return getattr(cls, s.upper(), cls.MEDIUM)
+
+
+class RecurrencePattern:
+    """Task recurrence patterns"""
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+    WEEKDAYS = "WEEKDAYS"
+    
+    @classmethod
+    def from_string(cls, s: str):
+        """Convert string to RecurrencePattern"""
+        return getattr(cls, s.upper(), None)
 
 @dataclass
 class Task:

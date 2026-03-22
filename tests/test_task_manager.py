@@ -8,7 +8,7 @@ def test_create_and_get_task(tmp_path):
     tm = TaskManager(str(storage))
 
     # create a task
-    task = tm.create_task(title="unit test task", description="desc")
+    task = tm.add_task(title="unit test task", description="desc")
     assert task.title == "unit test task"
     assert tm.get_task(task.id) is not None
 

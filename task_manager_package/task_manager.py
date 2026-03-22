@@ -1,235 +1,241 @@
-"""
-Task Management System - Todoist Clone
-Supports: Tasks, Projects, Labels, Priorities, Recurring Tasks, Reminders
-"""
-
+import logging
+from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from enum import Enum
-from typing import Optional, List
+from datetime import datetime
 import uuid
 import json
 from pathlib import Path
 
+# Import the logger from __init__.py
+from . import logger
 
-class Priority(Enum):
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
-    URGENT = 4
+# =============================================================================
+# Enums
+# =============================================================================
+
+class Priority:
+    """Task priority levels"""
+    LOW = 0
+    MEDIUM = 1
+    HIGH = 2
+    URGENT = 3
+    
+    @classmethod
+    def from_string(cls, s: str):
+        """Convert string to Priority"""
+        return getattr(cls, s.upper(), cls.MEDIUM)
 
 
-class RecurrencePattern(Enum):
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
-    WEEKDAYS = "weekdays"
+class RecurrencePattern:
+    """Task recurrence patterns"""
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+    WEEKDAYS = "WEEKDAYS"
+    
+    @classmethod
+    def from_string(cls, s: str):
+        """Convert string to RecurrencePattern"""
+        return getattr(cls, s.upper(), None)
 
 
-@dataclass
-class Reminder:
-    id: str
-    time: datetime
-    notified: bool = False
-
+# =============================================================================
+# Data Classes
+# =============================================================================
 
 @dataclass
 class Task:
+    """Represents a task in the task manager."""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     title: str = ""
     description: str = ""
     project: str = "Inbox"
     labels: List[str] = field(default_factory=list)
-    priority: Priority = Priority.MEDIUM
+    priority: Optional[str] = "MEDIUM"
     due_date: Optional[datetime] = None
-    due_time: Optional[datetime] = None
-    recurrence: Optional[RecurrencePattern] = None
-    recurrence_end: Optional[datetime] = None
     completed: bool = False
     completed_at: Optional[datetime] = None
     created_at: datetime = field(default_factory=datetime.now)
-    reminders: List[Reminder] = field(default_factory=list)
-    scheduled_time: Optional[datetime] = None  # AI scheduled time
-    estimated_duration: int = 30  # minutes
-
-    def to_dict(self):
+    recurrence: Optional[str] = None
+    estimated_duration: int = 30
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert task to dictionary."""
         return {
             "id": self.id,
             "title": self.title,
             "description": self.description,
             "project": self.project,
             "labels": self.labels,
-            "priority": self.priority.name,
+            "priority": self.priority,
             "due_date": self.due_date.isoformat() if self.due_date else None,
-            "due_time": self.due_time.isoformat() if self.due_time else None,
-            "recurrence": self.recurrence.value if self.recurrence else None,
             "completed": self.completed,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "created_at": self.created_at.isoformat(),
-            "reminders": [{"time": r.time.isoformat(), "notified": r.notified} for r in self.reminders],
-            "scheduled_time": self.scheduled_time.isoformat() if self.scheduled_time else None,
-            "estimated_duration": self.estimated_duration
+            "created_at": self.created_at.isoformat()
         }
+    
+    def to_summary(self) -> str:
+        """Get a summary string of the task."""
+        status = "✓" if self.completed else " "
+        return f"[{status}] {self.title} ({self.project})"
 
+
+# =============================================================================
+# Task Manager Class
+# =============================================================================
 
 class TaskManager:
-    def __init__(self, storage_path: str = "tasks.json"):
+    """Manages tasks with logging support."""
+    
+    def __init__(self, storage_path: str = "package_tasks.json"):
+        """Initialize the TaskManager."""
+        logger.info(f"Initializing TaskManager with storage: {storage_path}")
         self.storage_path = Path(storage_path)
         self.tasks: List[Task] = []
         self.projects = {"Inbox", "Personal", "Work", "Urgent"}
         self.load()
-
-    def load(self):
-        """Load tasks from storage"""
-        if self.storage_path.exists():
-            with open(self.storage_path, 'r') as f:
-                data = json.load(f)
-                self.tasks = [self._dict_to_task(t) for t in data.get('tasks', [])]
-                self.projects = set(data.get('projects', ["Inbox", "Personal", "Work", "Urgent"]))
-
-    def save(self):
-        """Save tasks to storage"""
-        data = {
-            "tasks": [t.to_dict() for t in self.tasks],
-            "projects": list(self.projects)
-        }
-        with open(self.storage_path, 'w') as f:
-            json.dump(data, f, indent=2)
-
-    def _dict_to_task(self, d: dict) -> Task:
-        """Convert dictionary to Task object"""
-        task = Task(
-            id=d['id'],
-            title=d['title'],
-            description=d.get('description', ''),
-            project=d.get('project', 'Inbox'),
-            labels=d.get('labels', []),
-            priority=Priority[d.get('priority', 'MEDIUM')],
-            completed=d.get('completed', False),
-            created_at=datetime.fromisoformat(d.get('created_at', datetime.now().isoformat()))
-        )
-
-        if d.get('due_date'):
-            task.due_date = datetime.fromisoformat(d['due_date'])
-        if d.get('due_time'):
-            task.due_time = datetime.fromisoformat(d['due_time'])
-        if d.get('completed_at'):
-            task.completed_at = datetime.fromisoformat(d['completed_at'])
-        if d.get('recurrence'):
-            task.recurrence = RecurrencePattern(d['recurrence'])
-        if d.get('scheduled_time'):
-            task.scheduled_time = datetime.fromisoformat(d['scheduled_time'])
-
+        logger.info(f"TaskManager ready | {len(self.tasks)} tasks loaded")
+    
+    def load(self) -> None:
+        """Load tasks from storage file."""
+        if not self.storage_path.exists():
+            logger.info("No existing task file found, starting fresh")
+            return
+        
+        try:
+            data = json.loads(self.storage_path.read_text())
+            self.tasks = [Task(**task_data) for task_data in data]
+            logger.info(f"Loaded {len(self.tasks)} tasks from {self.storage_path}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Corrupted task file: {e}")
+            self.tasks = []
+        except Exception as e:
+            logger.error(f"Failed to load tasks: {e}")
+            self.tasks = []
+    
+    def save(self) -> None:
+        """Save tasks to storage file."""
+        try:
+            data = [task.to_dict() for task in self.tasks]
+            self.storage_path.write_text(json.dumps(data, indent=2, default=str))
+            logger.debug(f"Saved {len(self.tasks)} tasks to {self.storage_path}")
+        except Exception as e:
+            logger.error(f"Failed to save tasks: {e}")
+            raise
+    
+    def add_task(self, title: str, project: str = "Inbox", **kwargs) -> Task:
+        """Add a new task."""
+        logger.info(f"Adding task: '{title}' to project '{project}'")
+        
+        if project not in self.projects:
+            logger.warning(f"Unknown project '{project}', using 'Inbox'")
+            project = "Inbox"
+        
+        task = Task(title=title, project=project, **kwargs)
+        self.tasks.append(task)
+        self.save()
+        
+        logger.info(f"Task added with ID: {task.id}")
         return task
-
-    # ------------------ Basic CRUD and helpers ------------------
-    def create_task(
-        self,
-        title: str,
-        description: str = "",
-        project: str = "Inbox",
-        due_date: Optional[datetime] = None,
-        due_time: Optional[datetime] = None,
-        priority: Priority = Priority.MEDIUM,
-        labels: List[str] = None,
-        recurrence: RecurrencePattern = None,
-        recurrence_end: datetime = None,
-        estimated_duration: int = 30
-    ) -> Task:
-        if project:
-            self.projects.add(project)
-
+    
+    def create_task(self, title: str, description: str = "", project: str = "Inbox", 
+                    due_date=None, priority=None, labels=None, recurrence=None, 
+                    estimated_duration: int = 30) -> Task:
+        """Create a new task (alias for add_task with more options)."""
+        logger.info(f"Creating task: '{title}' in project '{project}'")
+        
+        if project not in self.projects:
+            logger.warning(f"Unknown project '{project}', using 'Inbox'")
+            project = "Inbox"
+        
         task = Task(
             title=title,
             description=description,
             project=project,
-            due_date=due_date,
-            due_time=due_time,
             priority=priority,
+            due_date=due_date,
             labels=labels or [],
             recurrence=recurrence,
-            recurrence_end=recurrence_end,
             estimated_duration=estimated_duration
         )
-
         self.tasks.append(task)
         self.save()
+        
+        logger.info(f"Task created with ID: {task.id}")
         return task
-
+    
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """Get a task by ID."""
+        logger.debug(f"Fetching task: {task_id}")
+        task = next((t for t in self.tasks if t.id == task_id), None)
+        
+        if not task:
+            logger.warning(f"Task not found: {task_id}")
+        
+        return task
+    
     def get_tasks(self, project: str = None, completed: Optional[bool] = None, due_today: bool = False, overdue: bool = False, high_priority: bool = False) -> List[Task]:
-        results = self.tasks
+        """Get tasks with optional filters."""
+        logger.debug(f"Getting tasks | project={project}, completed={completed}, due_today={due_today}, overdue={overdue}, high_priority={high_priority}")
+        
+        tasks = self.tasks
+        
         if project:
-            results = [t for t in results if t.project == project]
+            tasks = [t for t in tasks if t.project == project]
+            logger.debug(f"Filtered by project '{project}': {len(tasks)} tasks")
+        
         if completed is not None:
-            results = [t for t in results if t.completed == completed]
-        if high_priority:
-            results = [t for t in results if t.priority in (Priority.HIGH, Priority.URGENT)]
+            tasks = [t for t in tasks if t.completed == completed]
+            logger.debug(f"Filtered by completed={completed}: {len(tasks)} tasks")
+        
         if due_today:
             today = datetime.now().date()
-            results = [t for t in results if t.due_date and t.due_date.date() == today]
+            tasks = [t for t in tasks if t.due_date and t.due_date.date() == today]
+            logger.debug(f"Filtered by due_today: {len(tasks)} tasks")
+        
         if overdue:
             now = datetime.now()
-            results = [t for t in results if t.due_date and t.due_date < now and not t.completed]
-        return results
-
-    def get_task(self, task_id: str) -> Optional[Task]:
-        """Retrieve a single task by its id."""
-        for t in self.tasks:
-            if t.id == task_id:
-                return t
-        return None
-
-    def complete_task(self, task_id: str) -> Optional[Task]:
-        task = self.get_task(task_id)
-        if task:
-            task.completed = True
-            task.completed_at = datetime.now()
-            self.save()
-        return task
-
-    def batch_create_tasks(self, titles: List[str], project: str = "Inbox", due_date: Optional[datetime] = None) -> List[Task]:
-        created = []
-        for t in titles:
-            created.append(self.create_task(title=t, project=project, due_date=due_date))
-        return created
-
-    def delete_task(self, task_id: str) -> bool:
-        task = self.get_task(task_id)
-        if task:
-            self.tasks = [t for t in self.tasks if t.id != task_id]
-            self.save()
-            return True
-        return False
-
-    def add_reminder(self, task_id: str, reminder_time: datetime):
+            tasks = [t for t in tasks if t.due_date and t.due_date < now and not t.completed]
+            logger.debug(f"Filtered by overdue: {len(tasks)} tasks")
+        
+        if high_priority:
+            tasks = [t for t in tasks if t.priority in ("HIGH", "URGENT")]
+            logger.debug(f"Filtered by high_priority: {len(tasks)} tasks")
+        
+        return tasks
+    
+    def complete_task(self, task_id: str) -> bool:
+        """Mark a task as completed."""
+        logger.info(f"Completing task: {task_id}")
+        
         task = self.get_task(task_id)
         if not task:
-            return None
-        reminder = Reminder(id=str(uuid.uuid4()), time=reminder_time)
-        task.reminders.append(reminder)
-        self.save()
-        return reminder
-
-    def mark_reminder_notified(self, task_id: str, reminder_id: str):
-        task = self.get_task(task_id)
-        if not task:
+            logger.error(f"Cannot complete - task not found: {task_id}")
             return False
-        for r in task.reminders:
-            if r.id == reminder_id:
-                r.notified = True
-                self.save()
-                return True
-        return False
-
-    def get_overdue_tasks(self) -> List[Task]:
-        now = datetime.now()
-        return [t for t in self.tasks if t.due_date and t.due_date < now and not t.completed]
-
-    def get_due_reminders(self):
-        now = datetime.now()
-        due = []
-        for task in self.tasks:
-            for r in task.reminders:
-                if not r.notified and r.time <= now:
-                    due.append((task, r))
-        return due
+        
+        task.completed = True
+        task.completed_at = datetime.now()
+        self.save()
+        
+        logger.info(f"Task completed: {task_id}")
+        return True
+    
+    def delete_task(self, task_id: str) -> bool:
+        """Delete a task."""
+        logger.info(f"Deleting task: {task_id}")
+        
+        task = self.get_task(task_id)
+        if not task:
+            logger.error(f"Cannot delete - task not found: {task_id}")
+            return False
+        
+        self.tasks.remove(task)
+        self.save()
+        
+        logger.info(f"Task deleted: {task_id}")
+        return True
+    
+    def get_projects(self) -> List[str]:
+        """Get list of all projects."""
+        logger.debug("Getting project list")
+        return list(self.projects)
