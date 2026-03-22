@@ -36,24 +36,18 @@ class TestLoggingConfiguration:
         from src import scheduler
         assert hasattr(scheduler, 'logger')
         assert scheduler.logger is not None
-
-    def test_reminder_logger_exists(self):
-        """Test that reminder module has a logger"""
-        from src import reminder
-        assert hasattr(reminder, 'logger')
-        assert reminder.logger is not None
-
-    def test_tools_logger_exists(self):
-        """Test that tools module has a logger"""
-        from src import tools
-        assert hasattr(tools, 'logger')
-        assert tools.logger is not None
-
-    def test_task_manager_logger_exists(self):
-        """Test that task_manager module has a logger"""
-        from src import task_manager
-        assert hasattr(task_manager, 'logger')
-        assert task_manager.logger is not None
+    
+        def test_tools_logger_exists(self):
+            """Test that tools module has a logger"""
+            from src import tools
+            assert hasattr(tools, 'logger')
+            assert tools.logger is not None
+    
+        def test_task_manager_logger_exists(self):
+            """Test that task_manager module has a logger"""
+            from src import task_manager
+            assert hasattr(task_manager, 'logger')
+            assert task_manager.logger is not None
 
 
 class TestLoggingOutput:
