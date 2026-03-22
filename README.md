@@ -133,40 +133,9 @@ Then OpenClaw can make HTTP requests to `http://localhost:5000`.
 | POST | `/api/comp-off` | Add a comp-off day |
 | GET | `/api/projects` | List all projects |
 
-## Remote Deployment
+## Logging
 
-The Task Manager is designed to run on a remote server alongside OpenClaw.
-
-### Remote Setup
-
-1. **SSH into your GCP instance:**
-   ```bash
-   gcloud compute ssh your-instance-name --zone=your-zone
-   ```
-
-2. **Clone the repository:**
-   ```bash
-   git clone https://github.com/sanchit339/TaskAgent.git
-   cd TaskAgent
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Start the Task Manager:**
-   ```bash
-   # Stdio mode (for OpenClaw local tool)
-   python3 main.py stdio
-   
-   # Or API mode on a specific port
-   python3 main.py serve 5000
-   ```
-
-### Logging
-
-All logs are stored in `~/.openclaw/workspace/logs/` on the GCP instance:
+All logs are stored in `~/.openclaw/workspace/logs/`:
 
 ```
 ~/.openclaw/workspace/logs/
@@ -179,17 +148,7 @@ All logs are stored in `~/.openclaw/workspace/logs/` on the GCP instance:
 
 These logs contain the complete OpenClaw agent interaction history and are useful for debugging.
 
-### Connecting OpenClaw
-
-Configure your OpenClaw instance to use the Task Manager:
-
-1. **For Stdio Mode:** OpenClaw executes `python3 main.py stdio` directly
-2. **For API Mode:** Set the API endpoint in your OpenClaw config:
-   ```
-   TASK_MANAGER_API=http://localhost:5000
-   ```
-
-## Installation (Local Development)
+## Installation
 
 1. Clone the repository:
    ```bash
