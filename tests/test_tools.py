@@ -1,5 +1,5 @@
 from pathlib import Path
-from task_manager import TaskManager
+from task_manager_package.task_manager import TaskManager
 from scheduler import SchedulerConfig, AIScheduler
 from reminder import ReminderSystem
 from tools import TaskTools
@@ -14,8 +14,12 @@ def test_tools_create_and_list(tmp_path):
     tools = TaskTools(tm, sch, rem)
 
     # create tasks via tools
-    msg = tools.create_task(title="API test task", description="desc", project="Inbox")
-    assert "✅ Task created" in msg
+    result = tools.create_task(title="API test task", description="desc", project="Inbox")
+    # result should be a dict with 'task' and 'message'
+    assert isinstance(result, dict)
+    assert "task" in result
+    assert "message" in result
+    assert "✅ Task created" in result["message"]
 
     # list tasks compact
     resp = tools.list_tasks(limit=10, offset=0)
