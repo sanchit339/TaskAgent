@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from task_manager import TaskManager
+from task_manager_package.task_manager import TaskManager
 
 
 def test_create_and_get_task(tmp_path):

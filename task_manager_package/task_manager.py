@@ -172,6 +172,13 @@ class TaskManager:
             results = [t for t in results if t.due_date and t.due_date < now and not t.completed]
         return results
 
+    def get_task(self, task_id: str) -> Optional[Task]:
+        """Retrieve a single task by its id."""
+        for t in self.tasks:
+            if t.id == task_id:
+                return t
+        return None
+
     def complete_task(self, task_id: str) -> Optional[Task]:
         task = self.get_task(task_id)
         if task:
