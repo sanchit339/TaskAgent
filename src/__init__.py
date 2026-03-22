@@ -4,7 +4,7 @@ A task and project management system that works as a local tool via stdio mode
 and provides REST API endpoints for task CRUD, scheduling, and reminders.
 """
 
-from src.task_manager import TaskManager, Priority, Task
+from src.task_manager import TaskManager, Priority, Task, Reminder
 from src.logging_utils import logger
 from src.constants import (
     DEFAULT_PROJECTS,
@@ -20,6 +20,7 @@ __all__ = [
     "TaskManager",
     "Priority",
     "Task",
+    "Reminder",
     "logger",
     "DEFAULT_PROJECTS",
     "DEFAULT_PRIORITIES",

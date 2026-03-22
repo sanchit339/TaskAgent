@@ -1,7 +1,7 @@
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import json
 from pathlib import Path
@@ -62,7 +62,24 @@ class Task:
     created_at: datetime = field(default_factory=datetime.now)
     recurrence: Optional[str] = None
     estimated_duration: int = DEFAULT_ESTIMATED_DURATION
-    
+
+    def __post_init__(self):
+        """Convert string dates to datetime objects after initialization."""
+        # Parse due_date if it's a string
+        if isinstance(self.due_date, str):
+            self.due_date = Task.parse_datetime(self.due_date)
+        
+        # Parse completed_at if it's a string
+        if isinstance(self.completed_at, str):
+            self.completed_at = Task.parse_datetime(self.completed_at)
+        
+        # Parse created_at if it's a string
+        if isinstance(self.created_at, str):
+            self.created_at = Task.parse_datetime(self.created_at)
+            if self.created_at is None:
+                # Fallback to now if parsing fails
+                self.created_at = datetime.now()
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert task to dictionary."""
         return {
@@ -82,6 +99,46 @@ class Task:
         """Get a summary string of the task."""
         status = "✓" if self.completed else " "
         return f"[{status}] {self.title} ({self.project})"
+
+    @staticmethod
+    def parse_datetime(value):
+        """Parse datetime from various formats (string, datetime, or None)."""
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            # Try parsing ISO format first
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                # Try common formats
+                for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']:
+                    try:
+                        return datetime.strptime(value, fmt)
+                    except ValueError:
+                        continue
+        return None
+
+
+@dataclass
+class Reminder:
+    """Represents a reminder for a task."""
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    task_id: str = ""
+    reminder_time: Optional[datetime] = None
+    notified: bool = False
+    created_at: datetime = field(default_factory=datetime.now)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert reminder to dictionary."""
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "reminder_time": self.reminder_time.isoformat() if self.reminder_time else None,
+            "notified": self.notified,
+            "created_at": self.created_at.isoformat()
+        }
 
 
 # =============================================================================
@@ -243,3 +300,89 @@ class TaskManager:
         """Get list of all projects."""
         logger.debug("Getting project list")
         return list(self.projects)
+
+    # =============================================================================
+    # Reminder Methods
+    # =============================================================================
+
+    def add_reminder(self, task_id: str, reminder_time: datetime) -> Optional[Reminder]:
+        """Add a reminder for a task."""
+        logger.info(f"Adding reminder for task {task_id} at {reminder_time}")
+        
+        task = self.get_task(task_id)
+        if not task:
+            logger.warning(f"Cannot add reminder - task not found: {task_id}")
+            return None
+        
+        reminder = Reminder(task_id=task_id, reminder_time=reminder_time)
+        
+        # Initialize reminders list if not exists
+        if not hasattr(self, 'reminders'):
+            self.reminders: List[Reminder] = []
+        
+        self.reminders.append(reminder)
+        self.save()
+        
+        logger.info(f"Reminder added: {reminder.id} for task {task_id}")
+        return reminder
+
+    def get_due_reminders(self) -> List[Tuple[Task, Reminder]]:
+        """Get all reminders that are due (reminder_time <= now and not notified)."""
+        logger.debug("Checking for due reminders")
+        
+        if not hasattr(self, 'reminders'):
+            self.reminders: List[Reminder] = []
+        
+        now = datetime.now()
+        due_reminders: List[Tuple[Task, Reminder]] = []
+        
+        for reminder in self.reminders:
+            if reminder.notified:
+                continue
+            
+            if reminder.reminder_time and reminder.reminder_time <= now:
+                task = self.get_task(reminder.task_id)
+                if task:
+                    due_reminders.append((task, reminder))
+                    logger.debug(f"Found due reminder: {reminder.id} for task {task.id}")
+        
+        return due_reminders
+
+    def mark_reminder_notified(self, task_id: str, reminder_id: str) -> bool:
+        """Mark a reminder as notified."""
+        logger.info(f"Marking reminder {reminder_id} as notified for task {task_id}")
+        
+        if not hasattr(self, 'reminders'):
+            self.reminders: List[Reminder] = []
+        
+        for reminder in self.reminders:
+            if reminder.id == reminder_id and reminder.task_id == task_id:
+                reminder.notified = True
+                self.save()
+                logger.info(f"Reminder {reminder_id} marked as notified")
+                return True
+        
+        logger.warning(f"Reminder not found: {reminder_id}")
+        return False
+
+    def get_reminders_for_task(self, task_id: str) -> List[Reminder]:
+        """Get all reminders for a specific task."""
+        if not hasattr(self, 'reminders'):
+            self.reminders: List[Reminder] = []
+        
+        return [r for r in self.reminders if r.task_id == task_id]
+
+    def delete_reminder(self, reminder_id: str) -> bool:
+        """Delete a reminder by ID."""
+        if not hasattr(self, 'reminders'):
+            self.reminders: List[Reminder] = []
+        
+        for i, reminder in enumerate(self.reminders):
+            if reminder.id == reminder_id:
+                del self.reminders[i]
+                self.save()
+                logger.info(f"Reminder deleted: {reminder_id}")
+                return True
+        
+        logger.warning(f"Reminder not found for deletion: {reminder_id}")
+        return False
