@@ -187,13 +187,22 @@ def main():
                 today = request.args.get('today', '').lower() == 'true'
                 overdue = request.args.get('overdue', '').lower() == 'true'
                 high_priority = request.args.get('high_priority', '').lower() == 'true'
+                limit = request.args.get('limit')
+                offset = request.args.get('offset', '0')
+                
+                # Parse limit and offset
+                limit_int = int(limit) if limit and limit.isdigit() else None
+                offset_int = int(offset) if offset.isdigit() else 0
+                
                 result = task_tools.list_tasks(
                     project=project,
                     today=today,
                     overdue=overdue,
-                    high_priority=high_priority
+                    high_priority=high_priority,
+                    limit=limit_int,
+                    offset=offset_int
                 )
-                return jsonify({"result": result})
+                return jsonify(result)
 
             @app.route('/api/tasks/batch', methods=['POST'])
             def api_batch_create():

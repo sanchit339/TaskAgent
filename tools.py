@@ -21,6 +21,7 @@ class TaskTools:
     def create_task(
         self,
         title: str,
+        description: str = "",
         project: str = "Inbox",
         due_date: str = None,  # ISO format string
         due_time: str = None,
@@ -51,6 +52,7 @@ class TaskTools:
         # Create task
         task = self.task_manager.create_task(
             title=title,
+            description=description,
             project=project,
             due_date=due_dt,
             priority=priority_enum,
@@ -161,9 +163,11 @@ class TaskTools:
         show_completed: bool = False,
         today: bool = False,
         overdue: bool = False,
-        high_priority: bool = False
-    ) -> str:
-        """List tasks with filters"""
+        high_priority: bool = False,
+        limit: int = None,
+        offset: int = 0
+    ) -> dict:
+        """List tasks with filters, returning compact JSON structure"""
         tasks = self.task_manager.get_tasks(
             project=project,
             completed=None if show_completed else False,
@@ -172,17 +176,26 @@ class TaskTools:
             high_priority=high_priority
         )
 
-        if not tasks:
-            return "No tasks found"
+        # Apply offset and limit
+        if offset:
+            tasks = tasks[offset:]
+        if limit:
+            tasks = tasks[:limit]
 
-        lines = ["📋 Tasks:"]
+        # Build compact task list
+        task_list = []
         for task in tasks:
-            status = "✅" if task.completed else "⬜"
-            priority_emoji = "🔴" if task.priority.value >= 3 else "🟡" if task.priority.value == 2 else "🟢"
-            due_str = f" due {task.due_date.strftime('%m/%d %H:%M')}" if task.due_date else ""
-            lines.append(f"  {status} {priority_emoji} {task.title} ({task.project}){due_str}")
+            task_dict = {
+                "id": task.id,
+                "title": task.title,
+                "project": task.project,
+                "priority": task.priority.name,
+                "completed": task.completed,
+                "due_date": task.due_date.isoformat() if task.due_date else None
+            }
+            task_list.append(task_dict)
 
-        return "\n".join(lines)
+        return {"tasks": task_list, "total": len(task_list)}
 
     # ==================== REMINDER TOOLS ====================
 
