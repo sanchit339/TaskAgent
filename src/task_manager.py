@@ -6,8 +6,12 @@ import uuid
 import json
 from pathlib import Path
 
-# Import the logger from __init__.py
-from . import logger
+# Import constants directly from their modules (avoid circular import)
+from .constants import DEFAULT_PROJECTS, DEFAULT_PRIORITY, DEFAULT_ESTIMATED_DURATION
+
+# Import logger from logging_utils directly
+from .logging_utils import setup_logger
+logger = setup_logger("task_manager")
 
 # =============================================================================
 # Enums
@@ -51,13 +55,13 @@ class Task:
     description: str = ""
     project: str = "Inbox"
     labels: List[str] = field(default_factory=list)
-    priority: Optional[str] = "MEDIUM"
+    priority: Optional[str] = DEFAULT_PRIORITY
     due_date: Optional[datetime] = None
     completed: bool = False
     completed_at: Optional[datetime] = None
     created_at: datetime = field(default_factory=datetime.now)
     recurrence: Optional[str] = None
-    estimated_duration: int = 30
+    estimated_duration: int = DEFAULT_ESTIMATED_DURATION
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert task to dictionary."""
@@ -92,7 +96,7 @@ class TaskManager:
         logger.info(f"Initializing TaskManager with storage: {storage_path}")
         self.storage_path = Path(storage_path)
         self.tasks: List[Task] = []
-        self.projects = {"Inbox", "Personal", "Work", "Urgent"}
+        self.projects = set(DEFAULT_PROJECTS)  # Use set() to allow dynamic additions
         self.load()
         logger.info(f"TaskManager ready | {len(self.tasks)} tasks loaded")
     
@@ -128,9 +132,9 @@ class TaskManager:
         logger.info(f"Adding task: '{title}' to project '{project}'")
         
         if project not in self.projects:
-            logger.warning(f"Unknown project '{project}', using 'Inbox'")
-            project = "Inbox"
-        
+            logger.info(f"Auto-creating project: {project}")
+            self.projects.add(project)
+
         task = Task(title=title, project=project, **kwargs)
         self.tasks.append(task)
         self.save()
@@ -138,16 +142,16 @@ class TaskManager:
         logger.info(f"Task added with ID: {task.id}")
         return task
     
-    def create_task(self, title: str, description: str = "", project: str = "Inbox", 
-                    due_date=None, priority=None, labels=None, recurrence=None, 
-                    estimated_duration: int = 30) -> Task:
+    def create_task(self, title: str, description: str = "", project: str = "Inbox",
+    due_date=None, priority=None, labels=None, recurrence=None,
+    estimated_duration: int = DEFAULT_ESTIMATED_DURATION) -> Task:
         """Create a new task (alias for add_task with more options)."""
         logger.info(f"Creating task: '{title}' in project '{project}'")
         
         if project not in self.projects:
-            logger.warning(f"Unknown project '{project}', using 'Inbox'")
-            project = "Inbox"
-        
+            logger.info(f"Auto-creating project: {project}")
+            self.projects.add(project)
+
         task = Task(
             title=title,
             description=description,
