@@ -1,8 +1,6 @@
-"""
-OpenClaw Tool Definitions
+""" OpenClaw Tool Definitions
 These functions will be registered as tools for OpenClaw to call
 """
-
 from typing import Optional, List
 from datetime import datetime, timedelta
 import json
@@ -29,9 +27,9 @@ class TaskTools:
         labels: List[str] = None,
         recurrence: str = None,
         estimated_duration: int = 30
-    ) -> str:
+    ) -> dict:
         """Create a new task"""
-        from task_manager import Priority, RecurrencePattern
+        from task_manager_package.task_manager import Priority, RecurrencePattern
 
         # Parse priority
         priority_enum = Priority[priority.upper()]
@@ -65,14 +63,29 @@ class TaskTools:
         if due_dt:
             self.scheduler.schedule_task(task.id)
 
-        return f"✅ Task created: {title} (ID: {task.id})"
+        task_dict = {
+            "id": task.id,
+            "title": task.title,
+            "project": task.project,
+            "priority": task.priority.name,
+            "description": task.description,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "labels": task.labels,
+            "recurrence": task.recurrence.name if task.recurrence else None,
+            "estimated_duration": task.estimated_duration
+        }
+
+        return {
+            "task": task_dict,
+            "message": f"✅ Task created: {title} (ID: {task.id})"
+        }
 
     def create_urgent_task(
         self,
         title: str,
         due_date: str = None,
         project: str = "Urgent"
-    ) -> str:
+    ) -> dict:
         """Create a high-priority/urgent task"""
         return self.create_task(
             title=title,
@@ -86,7 +99,7 @@ class TaskTools:
         title: str,
         project: str,
         due_date: str = None
-    ) -> str:
+    ) -> dict:
         """Add task to a specific project"""
         return self.create_task(
             title=title,
@@ -100,11 +113,10 @@ class TaskTools:
         recurrence: str,  # DAILY, WEEKLY, MONTHLY, WEEKDAYS
         time: str = "10:00",
         project: str = "Inbox"
-    ) -> str:
+    ) -> dict:
         """Create a recurring task"""
         today = datetime.now().date()
         due_dt = datetime.combine(today, datetime.strptime(time, "%H:%M").time())
-
         return self.create_task(
             title=title,
             project=project,
@@ -120,7 +132,7 @@ class TaskTools:
         task_list: List[str],
         project: str = "Inbox",
         due_date: str = None
-    ) -> str:
+    ) -> dict:
         """Create multiple tasks at once"""
         due_dt = None
         if due_date:
@@ -132,30 +144,70 @@ class TaskTools:
             due_date=due_dt
         )
 
-        return f"✅ Created {len(tasks)} tasks in {project}"
+        return {
+            "tasks": [
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "project": t.project
+                }
+                for t in tasks
+            ],
+            "count": len(tasks),
+            "message": f"✅ Created {len(tasks)} tasks in {project}"
+        }
 
     # ==================== TASK MANAGEMENT TOOLS ====================
 
-    def complete_task(self, task_id: str = None, title: str = None) -> str:
+    def complete_task(self, task_id: str = None, title: str = None) -> dict:
         """Mark a task as completed"""
         if task_id:
             task = self.task_manager.complete_task(task_id)
-            return f"✅ Completed: {task.title}"
+            task_dict = {
+                "id": task.id,
+                "title": task.title,
+                "project": task.project,
+                "completed": task.completed
+            }
+            return {
+                "task": task_dict,
+                "message": f"✅ Completed: {task.title}"
+            }
         elif title:
             # Find by title
             tasks = self.task_manager.get_tasks(completed=False)
             for task in tasks:
                 if title.lower() in task.title.lower():
                     self.task_manager.complete_task(task.id)
-                    return f"✅ Completed: {task.title}"
-            return f"❌ Task not found: {title}"
-        return "❌ Please provide task_id or title"
+                    task_dict = {
+                        "id": task.id,
+                        "title": task.title,
+                        "project": task.project,
+                        "completed": task.completed
+                    }
+                    return {
+                        "task": task_dict,
+                        "message": f"✅ Completed: {task.title}"
+                    }
+            return {
+                "task": None,
+                "ok": False,
+                "message": f"❌ Task not found: {title}"
+            }
+        else:  # Changed from bare return to else block
+            return { "task": None, "ok": False, "message": "❌ Please provide task_id or title" }
 
-    def delete_task(self, task_id: str) -> str:
+    def delete_task(self, task_id: str) -> dict:
         """Delete a task"""
         if self.task_manager.delete_task(task_id):
-            return f"🗑️ Task deleted"
-        return "❌ Task not found"
+            return {
+                "ok": True,
+                "message": f"🗑️ Task deleted (ID: {task_id})"
+            }
+        return {
+            "ok": False,
+            "message": "❌ Task not found"
+        }
 
     def list_tasks(
         self,
@@ -205,10 +257,9 @@ class TaskTools:
         title: str = None,
         minutes_before: int = 30,
         specific_time: str = None
-    ) -> str:
+    ) -> dict:
         """Set a reminder for a task"""
         target_id = task_id
-
         if not target_id and title:
             # Find task by title
             tasks = self.task_manager.get_tasks(completed=False)
@@ -218,7 +269,10 @@ class TaskTools:
                     break
 
         if not target_id:
-            return "❌ Task not found"
+            return {
+                "ok": False,
+                "message": "❌ Task not found"
+            }
 
         reminder_time = None
         if specific_time:
@@ -231,12 +285,20 @@ class TaskTools:
         )
 
         if reminder:
-            return f"🔔 Reminder set for {reminder.time.strftime('%Y-%m-%d %H:%M')}"
-        return "❌ Could not set reminder"
+            return {
+                "ok": True,
+                "reminder_time": reminder.time.isoformat(),
+                "message": f"🔔 Reminder set for {reminder.time.strftime('%Y-%m-%d %H:%M')}"
+            }
+        
+        return {
+            "ok": False,
+            "message": "❌ Could not set reminder"
+        }
 
     # ==================== SCHEDULING TOOLS ====================
 
-    def get_schedule(self, date: str = None) -> str:
+    def get_schedule(self, date: str = None) -> dict:
         """Get the schedule for a specific day"""
         if date:
             check_date = datetime.fromisoformat(date)
@@ -246,17 +308,34 @@ class TaskTools:
         schedule_data = self.scheduler.get_daily_schedule(check_date)
 
         if not schedule_data:
-            return "No tasks scheduled for this day"
+            return {
+                "date": check_date.isoformat(),
+                "schedule": [],
+                "message": "No tasks scheduled for this day"
+            }
 
-        lines = ["📅 Schedule:"]
+        schedule_list = []
         for item in schedule_data:
-            lines.append(f"  {item['time']} - {item['task']} ({item['duration']}min) - {item['project']}")
+            schedule_list.append({
+                "time": item["time"],
+                "task": item["task"],
+                "duration": item["duration"],
+                "project": item["project"]
+            })
 
-        return "\n".join(lines)
+        return {
+            "date": check_date.isoformat(),
+            "schedule": schedule_list,
+            "message": f"📅 Schedule for {check_date.strftime('%Y-%m-%d')}"
+        }
 
-    def get_schedule_suggestions(self) -> str:
+    def get_schedule_suggestions(self) -> dict:
         """Get AI schedule suggestions"""
-        return self.scheduler.suggest_schedule()
+        suggestions = self.scheduler.suggest_schedule()
+        return {
+            "suggestions": suggestions,
+            "message": "Here are schedule suggestions"
+        }
 
     def update_routine(
         self,
@@ -265,7 +344,7 @@ class TaskTools:
         work_days: List[int] = None,
         lunch_start: str = None,
         lunch_end: str = None
-    ) -> str:
+    ) -> dict:
         """Update daily routine settings"""
         config = self.scheduler.config
 
@@ -281,29 +360,47 @@ class TaskTools:
             config.routine.lunch_end = lunch_end
 
         config.save()
-        return "✅ Routine updated"
 
-    def add_holiday(self, date: str, name: str = "") -> str:
+        return {
+            "ok": True,
+            "message": "✅ Routine updated"
+        }
+
+    def add_holiday(self, date: str, name: str = "") -> dict:
         """Add a holiday"""
         holiday_date = datetime.fromisoformat(date)
         self.scheduler.config.add_holiday(holiday_date, name)
-        return f"✅ Holiday added: {name or date}"
+        
+        return {
+            "ok": True,
+            "date": date,
+            "name": name,
+            "message": f"✅ Holiday added: {name or date}"
+        }
 
-    def add_comp_off(self, date: str) -> str:
+    def add_comp_off(self, date: str) -> dict:
         """Add a comp-off day"""
         co_date = datetime.fromisoformat(date)
         self.scheduler.config.add_comp_off(co_date)
-        return f"✅ Comp-off added: {date}"
+        
+        return {
+            "ok": True,
+            "date": date,
+            "message": f"✅ Comp-off added: {date}"
+        }
 
     # ==================== PROJECT TOOLS ====================
 
-    def list_projects(self) -> str:
+    def list_projects(self) -> dict:
         """List all projects"""
         projects = self.task_manager.projects
-        lines = ["📁 Projects:", *[f"  - {p}" for p in sorted(projects)]]
-        return "\n".join(lines)
+        
+        return {
+            "projects": sorted(list(projects)),
+            "message": f"📁 Projects: {', '.join(sorted(projects))}"
+        }
 
-    def get_task_details(self, task_id: str = None, title: str = None) -> str:
+    def get_task_details(self, task_id: str = None, title: str = None) -> dict:
         """Get detailed info about a task"""
         if task_id:
             task = self.task_manager.get_task(task_id)
@@ -315,222 +412,32 @@ class TaskTools:
                     task = t
                     break
         else:
-            return "❌ Please provide task_id or title"
+            return {
+                "ok": False,
+                "message": "❌ Please provide task_id or title"
+            }
 
         if not task:
-            return "❌ Task not found"
-
-        details = [
-            f"📝 {task.title}",
-            f"   Project: {task.project}",
-            f"   Priority: {task.priority.name}",
-            f"   Status: {'Completed' if task.completed else 'Pending'}",
-        ]
-
-        if task.due_date:
-            details.append(f"   Due: {task.due_date.strftime('%Y-%m-%d %H:%M')}")
-
-        if task.labels:
-            details.append(f"   Labels: {', '.join(task.labels)}")
-
-        if task.reminders:
-            reminder_times = [r.time.strftime('%H:%M') for r in task.reminders]
-            details.append(f"   Reminders: {', '.join(reminder_times)}")
-
-        if task.scheduled_time:
-            details.append(f"   Scheduled: {task.scheduled_time.strftime('%H:%M')}")
-
-        details.append(f"   Duration: {task.estimated_duration} min")
-
-        return "\n".join(details)
-
-    def get_all_tools(self) -> dict:
-        """Return all tools in OpenClaw-compatible format"""
-        return {
-            "create_task": {
-                "name": "create_task",
-                "description": "Create a new task with optional due date, priority, and project",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string", "description": "Task title"},
-                        "project": {"type": "string", "description": "Project name (default: Inbox)"},
-                        "due_date": {"type": "string", "description": "Due date ISO format"},
-                        "due_time": {"type": "string", "description": "Due time HH:MM"},
-                        "priority": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "URGENT"]},
-                        "labels": {"type": "array", "items": {"type": "string"}},
-                        "recurrence": {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY", "WEEKDAYS"]},
-                        "estimated_duration": {"type": "integer"}
-                    },
-                    "required": ["title"]
-                }
-            },
-            "create_urgent_task": {
-                "name": "create_urgent_task",
-                "description": "Create a high-priority urgent task",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string", "description": "Task title"},
-                        "due_date": {"type": "string", "description": "Due date ISO format"},
-                        "project": {"type": "string", "description": "Project name (default: Urgent)"}
-                    },
-                    "required": ["title"]
-                }
-            },
-            "add_to_project": {
-                "name": "add_to_project",
-                "description": "Add a task to a specific project",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string", "description": "Task title"},
-                        "project": {"type": "string", "description": "Project name"},
-                        "due_date": {"type": "string", "description": "Due date ISO format"}
-                    },
-                    "required": ["title", "project"]
-                }
-            },
-            "create_recurring_task": {
-                "name": "create_recurring_task",
-                "description": "Create a recurring task",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "title": {"type": "string", "description": "Task title"},
-                        "recurrence": {"type": "string", "enum": ["DAILY", "WEEKLY", "MONTHLY", "WEEKDAYS"]},
-                        "time": {"type": "string", "description": "Time of day HH:MM (default 10:00)"},
-                        "project": {"type": "string", "description": "Project name"}
-                    },
-                    "required": ["title", "recurrence"]
-                }
-            },
-            "batch_create_tasks": {
-                "name": "batch_create_tasks",
-                "description": "Create multiple tasks at once",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "task_list": {"type": "array", "items": {"type": "string"}},
-                        "project": {"type": "string", "description": "Project name"},
-                        "due_date": {"type": "string", "description": "Due date ISO format"}
-                    },
-                    "required": ["task_list"]
-                }
-            },
-            "complete_task": {
-                "name": "complete_task",
-                "description": "Mark a task as completed",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "task_id": {"type": "string", "description": "Task ID"},
-                        "title": {"type": "string", "description": "Task title to find and complete"}
-                    }
-                }
-            },
-            "delete_task": {
-                "name": "delete_task",
-                "description": "Delete a task",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "task_id": {"type": "string", "description": "Task ID to delete"}
-                    },
-                    "required": ["task_id"]
-                }
-            },
-            "list_tasks": {
-                "name": "list_tasks",
-                "description": "List tasks with optional filters",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "project": {"type": "string", "description": "Filter by project"},
-                        "show_completed": {"type": "boolean", "description": "Show completed tasks"},
-                        "today": {"type": "boolean", "description": "Show tasks due today"},
-                        "overdue": {"type": "boolean", "description": "Show overdue tasks"},
-                        "high_priority": {"type": "boolean", "description": "Show high priority tasks"}
-                    }
-                }
-            },
-            "set_reminder": {
-                "name": "set_reminder",
-                "description": "Set a reminder for a task (unlimited reminders!)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "task_id": {"type": "string", "description": "Task ID"},
-                        "title": {"type": "string", "description": "Task title to find"},
-                        "minutes_before": {"type": "integer", "description": "Minutes before due time"},
-                        "specific_time": {"type": "string", "description": "Specific reminder time ISO format"}
-                    }
-                }
-            },
-            "get_schedule": {
-                "name": "get_schedule",
-                "description": "Get the schedule for a specific day",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "date": {"type": "string", "description": "Date ISO format (default: today)"}
-                    }
-                }
-            },
-            "get_schedule_suggestions": {
-                "name": "get_schedule_suggestions",
-                "description": "Get AI-powered schedule suggestions"
-            },
-            "update_routine": {
-                "name": "update_routine",
-                "description": "Update daily routine settings",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "work_start": {"type": "string", "description": "Work start time HH:MM"},
-                        "work_end": {"type": "string", "description": "Work end time HH:MM"},
-                        "work_days": {"type": "array", "items": {"type": "integer"}, "description": "Work days 0=Mon, 6=Sun"},
-                        "lunch_start": {"type": "string", "description": "Lunch start time HH:MM"},
-                        "lunch_end": {"type": "string", "description": "Lunch end time HH:MM"}
-                    }
-                }
-            },
-            "add_holiday": {
-                "name": "add_holiday",
-                "description": "Add a holiday (scheduler will avoid these dates)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "date": {"type": "string", "description": "Date ISO format"},
-                        "name": {"type": "string", "description": "Holiday name"}
-                    },
-                    "required": ["date"]
-                }
-            },
-            "add_comp_off": {
-                "name": "add_comp_off",
-                "description": "Add a compensatory off day (treated as work day)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "date": {"type": "string", "description": "Date ISO format"}
-                    },
-                    "required": ["date"]
-                }
-            },
-            "list_projects": {
-                "name": "list_projects",
-                "description": "List all available projects"
-            },
-            "get_task_details": {
-                "name": "get_task_details",
-                "description": "Get detailed information about a task",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "task_id": {"type": "string", "description": "Task ID"},
-                        "title": {"type": "string", "description": "Task title to find"}
-                    }
-                }
+            return {
+                "ok": False,
+                "message": "❌ Task not found"
             }
+
+        details = {
+            "id": task.id,
+            "title": task.title,
+            "project": task.project,
+            "priority": task.priority.name,
+            "status": "Completed" if task.completed else "Pending",
+            "description": task.description,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "labels": task.labels,
+            "estimated_duration": task.estimated_duration,
+            "scheduled_time": task.scheduled_time.strftime('%H:%M') if task.scheduled_time else None,
+            "reminders": [r.time.strftime('%H:%M') for r in task.reminders] if task.reminders else []
+        }
+
+        return {
+            "task": details,
+            "message": f"📝 {task.title}"
         }

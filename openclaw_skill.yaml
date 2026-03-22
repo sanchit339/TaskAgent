@@ -1,110 +1,428 @@
 name: TaskManagerSkill
 version: 1.0.0
-description: A skill to manage tasks and reminders with AI-powered scheduling.
+description: A skill to manage tasks and reminders with AI-powered scheduling. Returns JSON responses.
 auto_start: true
 start_command: python main.py serve 5000
+preferred_port: 5000
 health_check:
   endpoint: /api/tasks
   method: GET
   interval: 30
 tools:
   - name: CreateTask
-    description: Create a new task with optional due date, project, and priority.
+    description: Create a new task with optional due date, project, priority, labels, and recurrence. Returns JSON.
     endpoint: /api/tasks
     method: POST
     parameters:
       - name: title
         type: string
         required: true
-      - name: due_date
+      - name: description
         type: string
         required: false
       - name: project
         type: string
         required: false
+      - name: due_date
+        type: string
+        required: false
+      - name: due_time
+        type: string
+        required: false
       - name: priority
         type: string
         required: false
+      - name: labels
+        type: array
+        required: false
+      - name: recurrence
+        type: string
+        required: false
+      - name: estimated_duration
+        type: integer
+        required: false
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Task created",
+            "data": {
+              "id": "550e8400-e29b-41d4-a716-446655440000",
+              "title": "Review PR",
+              "description": "Review the new feature PR",
+              "project": "Work",
+              "labels": ["review"],
+              "priority": "HIGH",
+              "due_date": "2024-01-15",
+              "due_time": "10:00:00",
+              "recurrence": null,
+              "completed": false,
+              "completed_at": null,
+              "created_at": "2024-01-10T09:30:00",
+              "reminders": [],
+              "scheduled_time": null,
+              "estimated_duration": 30
+            }
+          }
+      error:
+        example: |
+          {
+            "success": false,
+            "error": {
+              "code": "INVALID_PROJECT",
+              "message": "Invalid project: FooBar"
+            }
+          }
+
   - name: ListTasks
-    description: List all tasks, optionally filtered by project, today, overdue, or high priority.
+    description: |
+      List tasks filtered by project, today, overdue, or priority. Returns JSON with task array.
+      Supports pagination via limit (default 50) and offset (default 0).
     endpoint: /api/tasks
     method: GET
     parameters:
       - name: project
         type: string
         required: false
+        description: Filter by project name (e.g., "Work", "Personal")
+      - name: show_completed
+        type: boolean
+        required: false
+        description: Include completed tasks (default: false - shows only incomplete)
       - name: today
         type: boolean
         required: false
+        description: Filter to tasks due today
       - name: overdue
         type: boolean
         required: false
+        description: Filter to overdue tasks
       - name: high_priority
         type: boolean
         required: false
+        description: Filter to high/urgent priority tasks only
+      - name: limit
+        type: integer
+        required: false
+        description: "Maximum tasks to return (default: 50, max: 200)"
+      - name: offset
+        type: integer
+        required: false
+        description: "Number of tasks to skip for pagination (default: 0)"
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "OK",
+            "data": [
+              {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "title": "Review PR",
+                "project": "Work",
+                "priority": "HIGH",
+                "due_date": "2024-01-15",
+                "completed": false
+              },
+              {
+                "id": "660e8400-e29b-41d4-a716-446655440001",
+                "title": "Send weekly report",
+                "project": "Work",
+                "priority": "MEDIUM",
+                "due_date": "2024-01-15",
+                "completed": false
+              }
+            ],
+            "meta": {
+              "count": 2,
+              "filters": {
+                "project": "Work",
+                "completed": null
+              },
+              "pagination": {
+                "limit": 50,
+                "offset": 0,
+                "total": 15
+              }
+            }
+          }
+        description: "Returns compact task objects with pagination meta"
+
   - name: BatchCreateTasks
-    description: Create multiple tasks at once.
+    description: Create multiple tasks at once. Returns JSON with created tasks.
     endpoint: /api/tasks/batch
     method: POST
     parameters:
-      - name: tasks
+      - name: task_list
         type: array
         required: true
+        description: Array of task titles (strings)
       - name: project
         type: string
         required: false
       - name: due_date
         type: string
         required: false
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "3 tasks created",
+            "data": [
+              {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "title": "Task 1",
+                "project": "Inbox",
+                "priority": "MEDIUM",
+                "due_date": null,
+                "completed": false
+              },
+              {
+                "id": "660e8400-e29b-41d4-a716-446655440001",
+                "title": "Task 2",
+                "project": "Inbox",
+                "priority": "MEDIUM",
+                "due_date": null,
+                "completed": false
+              },
+              {
+                "id": "770e8400-e29b-41d4-a716-446655440002",
+                "title": "Task 3",
+                "project": "Inbox",
+                "priority": "MEDIUM",
+                "due_date": null,
+                "completed": false
+              }
+            ],
+            "meta": {"count": 3}
+          }
+
   - name: CompleteTask
-    description: Mark a task as completed.
-    endpoint: /api/tasks/<task_id>/complete
+    description: Mark a task as completed by ID or title. Returns JSON confirmation.
+    endpoint: /api/tasks/complete
     method: POST
     parameters:
       - name: task_id
         type: string
-        required: true
+        required: false
+        description: Full UUID of the task
+      - name: title
+        type: string
+        required: false
+        description: Alternative to task_id - will match partial title (first match)
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Task completed",
+            "data": {
+              "id": "550e8400-e29b-41d4-a716-446655440000",
+              "title": "Review PR",
+              "completed": true,
+              "completed_at": "2024-01-10T14:30:00"
+            }
+          }
+      error:
+        example: |
+          {
+            "success": false,
+            "error": {
+              "code": "NOT_FOUND",
+              "message": "Task not found: review pr"
+            }
+          }
+
   - name: SetReminder
-    description: Set a reminder for a task (by minutes before or specific time).
-    endpoint: /api/tasks/<task_id>/reminder
+    description: Set a reminder for a task. Returns JSON with reminder time.
+    endpoint: /api/tasks/reminder
     method: POST
     parameters:
       - name: task_id
         type: string
-        required: true
+        required: false
+      - name: title
+        type: string
+        required: false
+        description: Alternative to task_id - will match partial title
       - name: minutes_before
         type: integer
         required: false
+        description: Minutes before due date/time (e.g., 15, 60)
       - name: specific_time
         type: string
         required: false
+        description: Specific time in ISO format (e.g., "2024-01-15T09:00:00")
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Reminder set",
+            "data": {
+              "task_id": "550e8400-e29b-41d4-a716-446655440000",
+              "reminder": {
+                "time": "2024-01-15T09:45:00",
+                "notified": false
+              }
+            }
+          }
+
   - name: GetSchedule
-    description: Get today's scheduled tasks with times.
+    description: Get scheduled tasks for a specific date. Returns JSON array of scheduled items.
     endpoint: /api/schedule
     method: GET
+    parameters:
+      - name: date
+        type: string
+        required: false
+        description: "ISO format date (YYYY-MM-DD), defaults to today"
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "OK",
+            "data": [
+              {
+                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "title": "Team standup",
+                "scheduled_time": "2024-01-15T09:00:00",
+                "estimated_duration": 15,
+                "project": "Work"
+              },
+              {
+                "id": "660e8400-e29b-41d4-a716-446655440001",
+                "title": "Review PR",
+                "scheduled_time": "2024-01-15T10:00:00",
+                "estimated_duration": 30,
+                "project": "Work"
+              }
+            ],
+            "meta": {
+              "date": "2024-01-15",
+              "total_duration_minutes": 45
+            }
+          }
+
   - name: GetScheduleSuggestions
-    description: Get AI-powered schedule suggestions for optimal task ordering.
+    description: Get AI-powered schedule suggestions for optimal task ordering. Returns JSON.
     endpoint: /api/schedule/suggestions
     method: GET
+    parameters: []
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Schedule suggestions generated",
+            "data": {
+              "suggestions": [
+                {
+                  "order": 1,
+                  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "title": "High priority coding task",
+                  "reason": "Highest priority, requires fresh mind"
+                },
+                {
+                  "order": 2,
+                  "task_id": "660e8400-e29b-41d4-a716-446655440001",
+                  "title": "Email catch-up",
+                  "reason": "Low energy task, good for after deep work"
+                }
+              ],
+              "optimization": "energy_management"
+            }
+          }
+
   - name: UpdateRoutine
-    description: Update daily routine preferences.
+    description: Update daily routine preferences. Returns JSON confirmation.
     endpoint: /api/routine
     method: POST
+    parameters:
+      - name: work_start
+        type: string
+        required: false
+        description: "Work start time (e.g., \"09:00\")"
+      - name: work_end
+        type: string
+        required: false
+        description: "Work end time (e.g., \"18:00\")"
+      - name: work_days
+        type: array
+        required: false
+        description: "Days of week (e.g., [\"MON\", \"TUE\", \"WED\", \"THU\", \"FRI\"])"
+      - name: lunch_start
+        type: string
+        required: false
+        description: "Lunch start time (e.g., \"12:00\")"
+      - name: lunch_end
+        type: string
+        required: false
+        description: "Lunch end time (e.g., \"13:00\")"
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Routine preferences updated",
+            "data": {
+              "work_start": "09:00",
+              "work_end": "18:00",
+              "work_days": ["MON", "TUE", "WED", "THU", "FRI"],
+              "lunch_start": "12:00",
+              "lunch_end": "13:00"
+            }
+          }
+
   - name: AddHoliday
-    description: Add a holiday to skip on scheduling.
+    description: Add a holiday to skip on scheduling. Returns JSON confirmation.
     endpoint: /api/holidays
     method: POST
     parameters:
       - name: date
         type: string
         required: true
+        description: "ISO format date (YYYY-MM-DD)"
       - name: name
         type: string
         required: false
+        description: "Holiday name (e.g., \"Christmas\")"
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Holiday added",
+            "data": {
+              "date": "2024-12-25",
+              "name": "Christmas"
+            }
+          }
+
   - name: AddCompOff
-    description: Add a comp-off day.
+    description: Add a comp-off day. Returns JSON confirmation.
     endpoint: /api/comp-off
-    env: OPENCLAW_BIN
-    default: /home/sanchitingale339/.npm-global/bin/openclaw
-  telegram_target:
-    env: OPENCLAW_TELEGRAM_TARGET
+    method: POST
+    parameters:
+      - name: date
+        type: string
+        required: true
+        description: "ISO format date (YYYY-MM-DD)"
+    response:
+      success:
+        example: |
+          {
+            "success": true,
+            "message": "Comp-off day added",
+            "data": {
+              "date": "2024-01-20",
+              "type": "comp_off"
+            }
+          }
+
+env:
+  OPENCLAW_BIN: /home/sanchitingale339/.npm-global/bin/openclaw
+  OPENCLAW_TELEGRAM_TARGET:

@@ -315,7 +315,7 @@ class TaskManager:
 
     # ==================== BATCH OPERATIONS ====================
 
-    def batch_create_tasks(self, titles: List[str], project: str = "Inbox", due_date: datetime = None) -> List[Task]:
+    def batch_create_tasks(self, titles: List[str], project: str = "Inbox", due_date: Optional[datetime] = None) -> List[Task]:
         """Create multiple tasks at once"""
         created_tasks = []
         for title in titles:
