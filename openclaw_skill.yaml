@@ -1,22 +1,110 @@
 name: TaskManagerSkill
 version: 1.0.0
-description: A skill to manage tasks and reminders.
+description: A skill to manage tasks and reminders with AI-powered scheduling.
 auto_start: true
-entry_point: main.py
+start_command: python main.py serve 5000
+health_check:
+  endpoint: /api/tasks
+  method: GET
+  interval: 30
 tools:
   - name: CreateTask
-    description: Create a new task.
+    description: Create a new task with optional due date, project, and priority.
     endpoint: /api/tasks
     method: POST
+    parameters:
+      - name: title
+        type: string
+        required: true
+      - name: due_date
+        type: string
+        required: false
+      - name: project
+        type: string
+        required: false
+      - name: priority
+        type: string
+        required: false
   - name: ListTasks
-    description: List all tasks.
+    description: List all tasks, optionally filtered by project, today, overdue, or high priority.
     endpoint: /api/tasks
     method: GET
+    parameters:
+      - name: project
+        type: string
+        required: false
+      - name: today
+        type: boolean
+        required: false
+      - name: overdue
+        type: boolean
+        required: false
+      - name: high_priority
+        type: boolean
+        required: false
+  - name: BatchCreateTasks
+    description: Create multiple tasks at once.
+    endpoint: /api/tasks/batch
+    method: POST
+    parameters:
+      - name: tasks
+        type: array
+        required: true
+      - name: project
+        type: string
+        required: false
+      - name: due_date
+        type: string
+        required: false
   - name: CompleteTask
     description: Mark a task as completed.
     endpoint: /api/tasks/<task_id>/complete
     method: POST
+    parameters:
+      - name: task_id
+        type: string
+        required: true
   - name: SetReminder
-    description: Set a reminder for a task.
+    description: Set a reminder for a task (by minutes before or specific time).
     endpoint: /api/tasks/<task_id>/reminder
     method: POST
+    parameters:
+      - name: task_id
+        type: string
+        required: true
+      - name: minutes_before
+        type: integer
+        required: false
+      - name: specific_time
+        type: string
+        required: false
+  - name: GetSchedule
+    description: Get today's scheduled tasks with times.
+    endpoint: /api/schedule
+    method: GET
+  - name: GetScheduleSuggestions
+    description: Get AI-powered schedule suggestions for optimal task ordering.
+    endpoint: /api/schedule/suggestions
+    method: GET
+  - name: UpdateRoutine
+    description: Update daily routine preferences.
+    endpoint: /api/routine
+    method: POST
+  - name: AddHoliday
+    description: Add a holiday to skip on scheduling.
+    endpoint: /api/holidays
+    method: POST
+    parameters:
+      - name: date
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: false
+  - name: AddCompOff
+    description: Add a comp-off day.
+    endpoint: /api/comp-off
+    env: OPENCLAW_BIN
+    default: /home/sanchitingale339/.npm-global/bin/openclaw
+  telegram_target:
+    env: OPENCLAW_TELEGRAM_TARGET

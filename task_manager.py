@@ -136,6 +136,7 @@ class TaskManager:
     def create_task(
         self,
         title: str,
+        description: str = "",
         project: str = "Inbox",
         due_date: Optional[datetime] = None,
         due_time: Optional[datetime] = None,
@@ -151,6 +152,7 @@ class TaskManager:
 
         task = Task(
             title=title,
+            description=description,
             project=project,
             due_date=due_date,
             due_time=due_time,
