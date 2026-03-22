@@ -121,3 +121,108 @@ class TaskManager:
             task.scheduled_time = datetime.fromisoformat(d['scheduled_time'])
 
         return task
+
+    # ------------------ Basic CRUD and helpers ------------------
+    def create_task(
+        self,
+        title: str,
+        description: str = "",
+        project: str = "Inbox",
+        due_date: Optional[datetime] = None,
+        due_time: Optional[datetime] = None,
+        priority: Priority = Priority.MEDIUM,
+        labels: List[str] = None,
+        recurrence: RecurrencePattern = None,
+        recurrence_end: datetime = None,
+        estimated_duration: int = 30
+    ) -> Task:
+        if project:
+            self.projects.add(project)
+
+        task = Task(
+            title=title,
+            description=description,
+            project=project,
+            due_date=due_date,
+            due_time=due_time,
+            priority=priority,
+            labels=labels or [],
+            recurrence=recurrence,
+            recurrence_end=recurrence_end,
+            estimated_duration=estimated_duration
+        )
+
+        self.tasks.append(task)
+        self.save()
+        return task
+
+    def get_tasks(self, project: str = None, completed: Optional[bool] = None, due_today: bool = False, overdue: bool = False, high_priority: bool = False) -> List[Task]:
+        results = self.tasks
+        if project:
+            results = [t for t in results if t.project == project]
+        if completed is not None:
+            results = [t for t in results if t.completed == completed]
+        if high_priority:
+            results = [t for t in results if t.priority in (Priority.HIGH, Priority.URGENT)]
+        if due_today:
+            today = datetime.now().date()
+            results = [t for t in results if t.due_date and t.due_date.date() == today]
+        if overdue:
+            now = datetime.now()
+            results = [t for t in results if t.due_date and t.due_date < now and not t.completed]
+        return results
+
+    def complete_task(self, task_id: str) -> Optional[Task]:
+        task = self.get_task(task_id)
+        if task:
+            task.completed = True
+            task.completed_at = datetime.now()
+            self.save()
+        return task
+
+    def batch_create_tasks(self, titles: List[str], project: str = "Inbox", due_date: Optional[datetime] = None) -> List[Task]:
+        created = []
+        for t in titles:
+            created.append(self.create_task(title=t, project=project, due_date=due_date))
+        return created
+
+    def delete_task(self, task_id: str) -> bool:
+        task = self.get_task(task_id)
+        if task:
+            self.tasks = [t for t in self.tasks if t.id != task_id]
+            self.save()
+            return True
+        return False
+
+    def add_reminder(self, task_id: str, reminder_time: datetime):
+        task = self.get_task(task_id)
+        if not task:
+            return None
+        reminder = Reminder(id=str(uuid.uuid4()), time=reminder_time)
+        task.reminders.append(reminder)
+        self.save()
+        return reminder
+
+    def mark_reminder_notified(self, task_id: str, reminder_id: str):
+        task = self.get_task(task_id)
+        if not task:
+            return False
+        for r in task.reminders:
+            if r.id == reminder_id:
+                r.notified = True
+                self.save()
+                return True
+        return False
+
+    def get_overdue_tasks(self) -> List[Task]:
+        now = datetime.now()
+        return [t for t in self.tasks if t.due_date and t.due_date < now and not t.completed]
+
+    def get_due_reminders(self):
+        now = datetime.now()
+        due = []
+        for task in self.tasks:
+            for r in task.reminders:
+                if not r.notified and r.time <= now:
+                    due.append((task, r))
+        return due
