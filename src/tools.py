@@ -1,49 +1,17 @@
 """ OpenClaw Tool Definitions These functions will be registered as tools for OpenClaw to call """
-from typing import Optional, List
+from typing import Any, Optional, List
 from datetime import datetime, timedelta
 import json
-import logging
+from .logging_utils import setup_logger
+from .constants import DEFAULT_PRIORITY, DEFAULT_ESTIMATED_DURATION
 
-# =============================================================================
-# Logging Configuration
-# =============================================================================
-
-def setup_logger(name: str = "tools", level: int = logging.INFO) -> logging.Logger:
-    """Configure and return a logger."""
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    
-    if logger.handlers:
-        return logger
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_format = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(message)s",
-        datefmt="%H:%M:%S"
-    )
-    console_handler.setFormatter(console_format)
-    
-    file_handler = logging.FileHandler("tools.log")
-    file_handler.setLevel(logging.DEBUG)
-    file_format = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    file_handler.setFormatter(file_format)
-    
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-    
-    return logger
-
-logger = setup_logger()
+logger = setup_logger("tools")
 
 
 class TaskTools:
     """Tools for OpenClaw integration"""
     
-    def __init__(self, task_manager, scheduler, reminder_system):
+    def __init__(self, task_manager: Any, scheduler: Any, reminder_system: Any) -> None:
         logger.info("Initializing TaskTools")
         self.task_manager = task_manager
         self.scheduler = scheduler
@@ -59,15 +27,15 @@ class TaskTools:
         project: str = "Inbox",
         due_date: str = None,  # ISO format string
         due_time: str = None,
-        priority: str = "MEDIUM",
+        priority: str = DEFAULT_PRIORITY,
         labels: List[str] = None,
         recurrence: str = None,
-        estimated_duration: int = 30
+        estimated_duration: int = DEFAULT_ESTIMATED_DURATION
     ) -> dict:
         """Create a new task"""
         logger.info(f"Creating task: '{title}' in project '{project}'")
         
-        from task_manager_package.task_manager import Priority, RecurrencePattern
+        from .task_manager import Priority, RecurrencePattern
         
         # Parse priority
         priority_enum = Priority.from_string(priority)
@@ -166,11 +134,11 @@ class TaskTools:
         today = datetime.now().date()
         due_dt = datetime.combine(today, datetime.strptime(time, "%H:%M").time())
         return self.create_task(
-            title=title,
-            project=project,
-            due_date=due_dt.isoformat(),
-            recurrence=recurrence,
-            priority="MEDIUM"
+        title=title,
+        project=project,
+        due_date=due_dt.isoformat(),
+        recurrence=recurrence,
+        priority=DEFAULT_PRIORITY
         )
     
     # ==================== BATCH OPERATIONS ====================
@@ -229,28 +197,42 @@ class TaskTools:
                 "message": f"✅ Completed: {task.title}"
             }
         elif title:
-            # Find by title
+            # Find by title - require exact match (case-insensitive)
             tasks = self.task_manager.get_tasks(completed=False)
-            for task in tasks:
-                if title.lower() in task.title.lower():
-                    self.task_manager.complete_task(task.id)
-                    task_dict = {
-                        "id": task.id,
-                        "title": task.title,
-                        "project": task.project,
-                        "completed": task.completed
-                    }
-                    logger.info(f"Task completed by title: {task.id}")
-                    return {
-                        "task": task_dict,
-                        "message": f"✅ Completed: {task.title}"
-                    }
-            logger.warning(f"Task not found by title: {title}")
-            return {
-                "task": None,
-                "ok": False,
-                "message": f"❌ Task not found: {title}"
-            }
+            matching_tasks = [task for task in tasks if title.lower() == task.title.lower()]
+            
+            if len(matching_tasks) == 0:
+                logger.warning(f"Task not found by title: {title}")
+                return {
+                    "task": None,
+                    "ok": False,
+                    "message": f"❌ Task not found: {title}"
+                }
+            elif len(matching_tasks) > 1:
+                # Multiple matches - require task_id to disambiguate
+                task_list = [{"id": t.id, "title": t.title} for t in matching_tasks]
+                logger.warning(f"Multiple tasks match title '{title}': {task_list}")
+                return {
+                    "task": None,
+                    "ok": False,
+                    "message": f"⚠️ Multiple tasks match '{title}'. Please use task_id to specify which one:\n" +
+                               "\n".join([f"- {t.id}: {t.title}" for t in matching_tasks])
+                }
+            else:
+                # Exact match found
+                task = matching_tasks[0]
+                self.task_manager.complete_task(task.id)
+                task_dict = {
+                    "id": task.id,
+                    "title": task.title,
+                    "project": task.project,
+                    "completed": task.completed
+                }
+                logger.info(f"Task completed by title: {task.id}")
+                return {
+                    "task": task_dict,
+                    "message": f"✅ Completed: {task.title}"
+                }
         else:
             # Changed from bare return to else block
             logger.warning("complete_task called without task_id or title")
@@ -334,13 +316,29 @@ class TaskTools:
         
         target_id = task_id
         if not target_id and title:
-            # Find task by title
+            # Find task by title - require exact match (case-insensitive)
             tasks = self.task_manager.get_tasks(completed=False)
-            for task in tasks:
-                if title.lower() in task.title.lower():
-                    target_id = task.id
-                    break
-        
+            matching_tasks = [task for task in tasks if title.lower() == task.title.lower()]
+            
+            if len(matching_tasks) == 0:
+                logger.warning(f"Task not found for reminder: {title}")
+                return {
+                    "ok": False,
+                    "message": f"❌ Task not found: {title}"
+                }
+            elif len(matching_tasks) > 1:
+                # Multiple matches - require task_id to disambiguate
+                task_list = [{"id": t.id, "title": t.title} for t in matching_tasks]
+                logger.warning(f"Multiple tasks match title '{title}': {task_list}")
+                return {
+                    "ok": False,
+                    "message": f"⚠️ Multiple tasks match '{title}'. Please use task_id to specify which one:\n" +
+                               "\n".join([f"- {t.id}: {t.title}" for t in matching_tasks])
+                }
+            else:
+                # Exact match found
+                target_id = matching_tasks[0].id
+    
         if not target_id:
             logger.warning(f"Task not found for reminder: {title or task_id}")
             return {
@@ -501,7 +499,7 @@ class TaskTools:
     def get_task_details(self, task_id: str = None, title: str = None) -> dict:
         """Get detailed info about a task"""
         logger.debug(f"Getting task details - task_id: {task_id}, title: {title}")
-        
+    
         if task_id:
             task = self.task_manager.get_task(task_id)
         elif title:
@@ -517,14 +515,14 @@ class TaskTools:
                 "ok": False,
                 "message": "❌ Please provide task_id or title"
             }
-        
+    
         if not task:
             logger.warning(f"Task not found: {task_id or title}")
             return {
                 "ok": False,
                 "message": "❌ Task not found"
             }
-        
+    
         details = {
             "id": task.id,
             "title": task.title,
@@ -543,4 +541,30 @@ class TaskTools:
         return {
             "task": details,
             "message": f"📝 {task.title}"
+        }
+    
+    def get_all_tools(self) -> dict:
+        """Get list of all available tools"""
+        logger.debug("Getting all tools")
+        tools = [
+            {"name": "create_task", "description": "Create a new task"},
+            {"name": "create_urgent_task", "description": "Create an urgent task"},
+            {"name": "add_to_project", "description": "Add task to a project"},
+            {"name": "create_recurring_task", "description": "Create a recurring task"},
+            {"name": "batch_create_tasks", "description": "Create multiple tasks at once"},
+            {"name": "complete_task", "description": "Mark a task as completed"},
+            {"name": "delete_task", "description": "Delete a task"},
+            {"name": "list_tasks", "description": "List tasks with optional filters"},
+            {"name": "set_reminder", "description": "Set a reminder for a task"},
+            {"name": "get_schedule", "description": "Get schedule for a specific date"},
+            {"name": "get_schedule_suggestions", "description": "Get AI schedule suggestions"},
+            {"name": "update_routine", "description": "Update daily routine"},
+            {"name": "add_holiday", "description": "Add a holiday"},
+            {"name": "add_comp_off", "description": "Add a comp-off day"},
+            {"name": "list_projects", "description": "List all projects"},
+            {"name": "get_task_details", "description": "Get detailed task information"},
+        ]
+        return {
+            "tools": tools,
+            "count": len(tools),
         }

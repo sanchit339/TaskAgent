@@ -1,8 +1,8 @@
 from pathlib import Path
-from task_manager_package.task_manager import TaskManager
-from scheduler import SchedulerConfig, AIScheduler
-from reminder import ReminderSystem
-from tools import TaskTools
+from src import TaskManager
+from src.scheduler import SchedulerConfig, AIScheduler
+from src.reminder import ReminderSystem
+from src.tools import TaskTools
 
 
 def test_tools_create_and_list(tmp_path):

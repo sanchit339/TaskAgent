@@ -13,14 +13,14 @@ class TestLoggingConfiguration:
     
     def test_task_manager_package_logger_exists(self):
         """Test that task_manager_package has a logger"""
-        from task_manager_package import logger
+        from src import logger
         assert logger is not None
         assert isinstance(logger, logging.Logger)
-        assert logger.name == "task_manager_package"
-    
+        assert logger.name == "task_manager"
+
     def test_task_manager_package_task_manager_logger(self):
         """Test that task_manager_package.task_manager has a logger"""
-        from task_manager_package.task_manager import logger
+        from src import logger
         assert logger is not None
         assert isinstance(logger, logging.Logger)
     
@@ -33,25 +33,25 @@ class TestLoggingConfiguration:
     
     def test_scheduler_logger_exists(self):
         """Test that scheduler module has a logger"""
-        import scheduler
+        from src import scheduler
         assert hasattr(scheduler, 'logger')
         assert scheduler.logger is not None
-    
+
     def test_reminder_logger_exists(self):
         """Test that reminder module has a logger"""
-        import reminder
+        from src import reminder
         assert hasattr(reminder, 'logger')
         assert reminder.logger is not None
-    
+
     def test_tools_logger_exists(self):
         """Test that tools module has a logger"""
-        import tools
+        from src import tools
         assert hasattr(tools, 'logger')
         assert tools.logger is not None
-    
+
     def test_task_manager_logger_exists(self):
         """Test that task_manager module has a logger"""
-        import task_manager
+        from src import task_manager
         assert hasattr(task_manager, 'logger')
         assert task_manager.logger is not None
 
@@ -63,19 +63,19 @@ class TestLoggingOutput:
         """Test that task_manager_package logs on initialization"""
         # Re-import to trigger initialization logging
         import importlib
-        import task_manager_package
-        importlib.reload(task_manager_package)
-        
-        from task_manager_package import logger
-        
+        import src
+        importlib.reload(src)
+
+        from src import logger
+
         # The logger should exist and be named correctly
-        assert logger.name == "task_manager_package"
+        assert logger.name == "task_manager"
         # Should have handlers (console and file)
         assert len(logger.handlers) >= 1
     
     def test_task_manager_logs_operations(self, tmp_path):
         """Test that TaskManager logs operations"""
-        from task_manager_package.task_manager import TaskManager, logger
+        from src.task_manager import TaskManager, logger
         
         storage = tmp_path / "tasks.json"
         
@@ -109,7 +109,7 @@ class TestLoggingLevels:
     
     def test_info_level_for_operations(self, tmp_path):
         """Test that operations use INFO level"""
-        from task_manager_package.task_manager import TaskManager, logger
+        from src.task_manager import TaskManager, logger
         
         storage = tmp_path / "tasks.json"
         
@@ -128,7 +128,7 @@ class TestLoggingLevels:
     
     def test_warning_level_for_errors(self, tmp_path):
         """Test that errors use WARNING level"""
-        from task_manager_package.task_manager import TaskManager, logger
+        from src.task_manager import TaskManager, logger
         
         storage = tmp_path / "tasks.json"
         
@@ -154,7 +154,7 @@ class TestLoggingHandlers:
     
     def test_console_handler_exists(self):
         """Test that loggers have console handlers"""
-        from task_manager_package import logger
+        from src import logger
         handlers = logger.handlers
         # Should have at least one handler
         assert len(handlers) > 0
@@ -162,10 +162,10 @@ class TestLoggingHandlers:
     def test_logger_not_duplicate_on_reimport(self):
         """Test that reimporting doesn't create duplicate handlers"""
         import importlib
-        import task_manager_package
-        importlib.reload(task_manager_package)
-        
-        from task_manager_package import logger
+        import src
+        importlib.reload(src)
+
+        from src import logger
         # Should not have duplicate handlers
         handler_types = [type(h) for h in logger.handlers]
         # Allow multiple handlers but they should be different types or from different sources

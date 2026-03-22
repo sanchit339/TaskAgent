@@ -1,47 +1,14 @@
 """ Main entry point - provides both CLI and API for OpenClaw """
-import logging
+from src.logging_utils import setup_logger
+from src.api_utils import success_response, error_response
 
-# =============================================================================
-# Logging Configuration
-# =============================================================================
-
-def setup_logger(name: str = "main", level: int = logging.INFO) -> logging.Logger:
-    """Configure and return a logger."""
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    
-    if logger.handlers:
-        return logger
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_format = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(message)s",
-        datefmt="%H:%M:%S"
-    )
-    console_handler.setFormatter(console_format)
-    
-    file_handler = logging.FileHandler("main.log")
-    file_handler.setLevel(logging.DEBUG)
-    file_format = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    file_handler.setFormatter(file_format)
-    
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-    
-    return logger
-
-logger = setup_logger()
+logger = setup_logger("main")
 
 # Now import after logging is set up
-from task_manager import TaskManager, Priority
-from task_manager_package.task_manager import TaskManager as PackageTaskManager
-from scheduler import SchedulerConfig, AIScheduler
-from reminder import ReminderSystem
-from tools import TaskTools
+from src import TaskManager, Priority
+from src.scheduler import SchedulerConfig, AIScheduler
+from src.reminder import ReminderSystem
+from src.tools import TaskTools
 import os
 import sys
 import json
@@ -65,7 +32,7 @@ task_tools = TaskTools(task_manager, scheduler, reminder_system)
 logger.info("All components initialized successfully")
 
 # Register OpenClaw Telegram callback if configured
-OPENCLAW_BIN = os.getenv('OPENCLAW_BIN', '/home/sanchitingale339/.npm-global/bin/openclaw')
+OPENCLAW_BIN = os.getenv('OPENCLAW_BIN')
 TELEGRAM_TARGET = os.getenv('OPENCLAW_TELEGRAM_TARGET', '')
 
 def send_telegram_reminder(task, reminder):
@@ -99,27 +66,6 @@ if TELEGRAM_TARGET:
 
 # Start reminder system
 reminder_system.start()
-
-# ==================== RESPONSE HELPERS ====================
-
-def success_response(data=None, message=None):
-    """Build a standardized success response envelope."""
-    response = {"ok": True}
-    if data is not None:
-        response["data"] = data
-    if message is not None:
-        response["message"] = message
-    return response
-
-def error_response(code, message):
-    """Build a standardized error response envelope."""
-    return {
-        "ok": False,
-        "error": {
-            "code": code,
-            "message": message
-        }
-    }
 
 # ==================== FLASK APP FACTORY ====================
 
@@ -155,8 +101,8 @@ def create_app():
             result = task_tools.create_task(**data)
             # Determine if result is structured data or a message
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in create_task: {e}")
             return error_response(400, str(e))
@@ -174,7 +120,7 @@ def create_app():
             
             # Parse limit and offset
             limit_int = int(limit) if limit and limit.isdigit() else None
-            offset_int = int(offset) if offset.isdigit() else 0
+            offset_int = int(offset) if offset and offset.isdigit() else 0
             
             result = task_tools.list_tasks(
                 project=project,
@@ -185,7 +131,7 @@ def create_app():
                 offset=offset_int
             )
             # list_tasks returns a structured list, so pass as data
-            return success_response(data=result)
+            return success_response(data=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in list_tasks: {e}")
             return error_response(500, str(e))
@@ -201,8 +147,8 @@ def create_app():
                 due_date=data.get('due_date')
             )
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in batch_create: {e}")
             return error_response(400, str(e))
@@ -213,8 +159,8 @@ def create_app():
             logger.debug(f"API: Completing task {task_id}")
             result = task_tools.complete_task(task_id)
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in complete_task: {e}")
             return error_response(400, str(e))
@@ -230,8 +176,8 @@ def create_app():
                 specific_time=data.get('specific_time')
             )
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in set_reminder: {e}")
             return error_response(400, str(e))
@@ -252,7 +198,7 @@ def create_app():
                         "priority": task.priority.name,
                         "project": task.project
                     })
-            return success_response(data={"schedule": schedule})
+            return success_response(data={"schedule": schedule}, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in get_schedule: {e}")
             return error_response(500, str(e))
@@ -263,8 +209,8 @@ def create_app():
             logger.debug("API: Getting schedule suggestions")
             result = task_tools.get_schedule_suggestions()
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in schedule_suggestions: {e}")
             return error_response(500, str(e))
@@ -276,8 +222,8 @@ def create_app():
             data = request.json
             result = task_tools.update_routine(**data)
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in update_routine: {e}")
             return error_response(400, str(e))
@@ -289,8 +235,8 @@ def create_app():
             data = request.json
             result = task_tools.add_holiday(data.get('date'), data.get('name', ''))
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in add_holiday: {e}")
             return error_response(400, str(e))
@@ -302,8 +248,8 @@ def create_app():
             data = request.json
             result = task_tools.add_comp_off(data.get('date'))
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in add_comp_off: {e}")
             return error_response(400, str(e))
@@ -314,8 +260,8 @@ def create_app():
             logger.debug("API: Listing projects")
             result = task_tools.list_projects()
             if isinstance(result, dict):
-                return success_response(data=result)
-            return success_response(message=result)
+                return success_response(data=result, use_legacy_format=True)
+            return success_response(message=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in list_projects: {e}")
             return error_response(500, str(e))
@@ -325,7 +271,7 @@ def create_app():
         try:
             logger.debug("API: Getting tools")
             result = task_tools.get_all_tools()
-            return success_response(data=result)
+            return success_response(data=result, use_legacy_format=True)
         except Exception as e:
             logger.error(f"API error in get_tools: {e}")
             return error_response(500, str(e))
@@ -341,7 +287,7 @@ def run_stdio_mode():
     try:
         while True:
             # Read JSON-RPC request from stdin
-            line = sys.stdin.readline()
+            line = sys.stdin.readline(65536)
             if not line:
                 break
             
@@ -461,8 +407,16 @@ def main():
         
         if command == "serve":
             # Get port from CLI arg or environment variable (CLI arg takes precedence)
-            port = int(sys.argv[2]) if len(sys.argv) > 2 else int(os.getenv('FLASK_PORT', 5000))
-            
+            port_str = sys.argv[2] if len(sys.argv) > 2 else os.getenv('FLASK_PORT', '5000')
+            try:
+                port = int(port_str)
+                if not (1 <= port <= 65535):
+                    raise ValueError(f"Port {port} is out of valid range (1-65535)")
+            except ValueError as e:
+                logger.error(f"Invalid port value: {port_str}. {e}")
+                print(f"Error: Invalid port value '{port_str}'. Port must be between 1 and 65535.")
+                sys.exit(1)
+        
             # Get host from environment variable (default to 0.0.0.0)
             host = os.getenv('FLASK_HOST', '0.0.0.0')
             
