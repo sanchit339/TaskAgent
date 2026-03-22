@@ -1,0 +1,18 @@
+{
+    "routine": {
+        "work_start": "09:00",
+        "work_end": "18:00",
+        "work_days": [0, 1, 2, 3, 4],
+        "lunch_start": "13:00",
+        "lunch_end": "14:00",
+        "sleep_start": "23:00",
+        "sleep_end": "07:00"
+    },
+    "holidays": [
+        "2024-01-26",
+        "2024-08-15",
+        "2024-10-02"
+    ],
+    "comp_offs": [],
+    "default_task_duration": 30
+}

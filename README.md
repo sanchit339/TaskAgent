@@ -1,6 +1,6 @@
 # Task Manager - OpenClaw Integration
 
-A fully-featured Todoist clone with unlimited reminders and AI-powered scheduling, designed to work seamlessly with OpenClaw as a local tool.
+A fully-featured Todoist clone with unlimited reminders and AI-powered scheduling, designed to work seamlessly with OpenClaw as a local tool via tool calls.
 
 ## Features
 
@@ -13,13 +13,42 @@ A fully-featured Todoist clone with unlimited reminders and AI-powered schedulin
 - ✅ Batch operations
 - ✅ JSON persistence
 - ✅ Flask REST API
-- ✅ **Stdio mode for OpenClaw local tool execution**
+- ✅ **Stdio mode for OpenClaw tool calls**
+
+## How It Works
+
+OpenClaw agent communicates with the Task Manager through tool calls. The agent executes the task manager as a local tool and exchanges JSON-RPC 2.0 messages via stdin/stdout.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  OpenClaw Agent                                                 │
+│                                                                 │
+│  ┌─────────────┐                                                │
+│  │  Tool Call  │ ──────► Executes: python3 main.py stdio        │
+│  │  Request    │                                                │
+│  └─────────────┘                                                │ 
+│        │                                                        │
+│        ▼                                                        │
+│  ┌─────────────┐                                                │
+│  │   stdin     │ ──────► JSON-RPC request                       │
+│  └─────────────┘                                                │
+│                                                                 │
+│  ┌─────────────┐                                                │
+│  │  stdout     │ ◄────── JSON-RPC response                      │
+│  └─────────────┘                                                │
+│        │                                                        │
+│        ▼                                                        │
+│  ┌─────────────┐                                                │
+│  │ Tool Result │ ◄────── Task Manager processes request         │
+│  └─────────────┘                                                │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Quick Start
 
-### Option 1: Stdio Mode (Recommended for OpenClaw)
+### Stdio Mode (How OpenClaw calls the Task Manager)
 
-OpenClaw will directly execute the task manager and communicate via stdin/stdout:
+OpenClaw executes the task manager and communicates via stdin/stdout:
 
 ```bash
 python3 main.py stdio
@@ -27,7 +56,7 @@ python3 main.py stdio
 
 The tool expects JSON-RPC 2.0 formatted requests on stdin and outputs responses on stdout.
 
-#### Example Stdio Request
+#### Example Tool Call Request
 
 ```json
 {
@@ -46,7 +75,7 @@ The tool expects JSON-RPC 2.0 formatted requests on stdin and outputs responses 
 }
 ```
 
-#### Example Stdio Response
+#### Example Tool Call Response
 
 ```json
 {
@@ -58,7 +87,7 @@ The tool expects JSON-RPC 2.0 formatted requests on stdin and outputs responses 
 
 #### Tool Discovery
 
-OpenClaw can fetch available tools:
+OpenClaw can discover available tools:
 
 ```json
 {
@@ -88,7 +117,7 @@ Response:
 }
 ```
 
-### Option 2: API Mode
+### API Mode (Alternative)
 
 Start the Flask API server:
 
@@ -115,19 +144,41 @@ Then OpenClaw can make HTTP requests to `http://localhost:5000`.
 | POST | `/api/comp-off` | Add a comp-off day |
 | GET | `/api/projects` | List all projects |
 
+## Logging
+
+All logs are stored in `~/.openclaw/workspace/logs/`:
+
+```
+~/.openclaw/workspace/logs/
+├── main.log          # Main application logs
+├── task_manager.log  # Task management logs
+├── scheduler.log     # AI scheduling logs
+├── reminder.log      # Reminder system logs
+└── tools.log         # OpenClaw tool logs
+```
+
+These logs contain the complete OpenClaw agent interaction history and are useful for debugging.
+
 ## Installation
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/sanchit339/TaskAgent.git
    ```
+
 2. Navigate to the project directory:
    ```bash
    cd TaskAgent
    ```
+
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
+   ```
+
+4. Run tests:
+   ```bash
+   python -m pytest -v
    ```
 
 ## License
