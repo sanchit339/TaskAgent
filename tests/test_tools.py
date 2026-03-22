@@ -1,7 +1,6 @@
 from pathlib import Path
 from src import TaskManager
 from src.scheduler import SchedulerConfig, AIScheduler
-from src.reminder import ReminderSystem
 from src.tools import TaskTools
 
 
@@ -10,8 +9,7 @@ def test_tools_create_and_list(tmp_path):
     tm = TaskManager(str(storage))
     sc = SchedulerConfig(str(tmp_path / "config.json"))
     sch = AIScheduler(tm, sc)
-    rem = ReminderSystem(tm)
-    tools = TaskTools(tm, sch, rem)
+    tools = TaskTools(tm, sch)
 
     # create tasks via tools
     result = tools.create_task(title="API test task", description="desc", project="Inbox")

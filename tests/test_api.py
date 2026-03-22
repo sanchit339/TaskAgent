@@ -5,7 +5,6 @@ import pytest
 import main as main_mod
 from src import TaskManager
 from src.scheduler import SchedulerConfig, AIScheduler
-from src.reminder import ReminderSystem
 from src.tools import TaskTools
 
 
@@ -15,13 +14,11 @@ def test_api_create_and_list(tmp_path, monkeypatch):
     tm = TaskManager(str(storage))
     sc = SchedulerConfig(str(tmp_path / "config.json"))
     sch = AIScheduler(tm, sc)
-    rem = ReminderSystem(tm)
-    tools = TaskTools(tm, sch, rem)
+    tools = TaskTools(tm, sch)
 
     # Monkeypatch module-level globals in main to use the test instances
     monkeypatch.setattr(main_mod, "task_manager", tm)
     monkeypatch.setattr(main_mod, "scheduler", sch)
-    monkeypatch.setattr(main_mod, "reminder_system", rem)
     monkeypatch.setattr(main_mod, "task_tools", tools)
 
     app = main_mod.create_app()

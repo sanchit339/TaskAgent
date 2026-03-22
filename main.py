@@ -7,7 +7,6 @@ logger = setup_logger("main")
 # Now import after logging is set up
 from src import TaskManager, Priority
 from src.scheduler import SchedulerConfig, AIScheduler
-from src.reminder import ReminderSystem
 from src.tools import TaskTools
 import os
 import sys
@@ -26,46 +25,19 @@ logger.info(f"Initializing Task Manager - Tasks file: {TASKS_FILE}, Config: {CON
 task_manager = TaskManager(str(TASKS_FILE))
 config = SchedulerConfig(str(CONFIG_FILE))
 scheduler = AIScheduler(task_manager, config)
-reminder_system = ReminderSystem(task_manager)
-task_tools = TaskTools(task_manager, scheduler, reminder_system)
+# Note: Using system crons for reminders instead of internal ReminderSystem
+# ReminderSystem was removed - use set_reminder tool which creates system cron jobs
+task_tools = TaskTools(task_manager, scheduler)
 
 logger.info("All components initialized successfully")
 
-# Register OpenClaw Telegram callback if configured
+# OpenClaw Telegram notifications (for cron-based reminders)
 OPENCLAW_BIN = os.getenv('OPENCLAW_BIN')
 TELEGRAM_TARGET = os.getenv('OPENCLAW_TELEGRAM_TARGET', '')
 
-def send_telegram_reminder(task, reminder):
-    """Send reminder notification via OpenClaw Telegram"""
-    if not TELEGRAM_TARGET:
-        return
-    
-    logger.info(f"Sending Telegram reminder for task: {task.id}")
-    
-    message = f"🔔 Reminder: {task.title}"
-    if task.due_date:
-        message += f"\nDue: {task.due_date.strftime('%Y-%m-%d %H:%M')}"
-    if task.project != "Inbox":
-        message += f"\nProject: {task.project}"
-    
-    try:
-        subprocess.run(
-            [OPENCLAW_BIN, "message", "send", "--target", TELEGRAM_TARGET, "--message", message],
-            timeout=10,
-            capture_output=True
-        )
-        logger.debug(f"Telegram reminder sent successfully for task {task.id}")
-    except Exception as e:
-        logger.error(f"Failed to send Telegram reminder: {e}")
-        print(f"Failed to send Telegram reminder: {e}", file=sys.stderr)
-
 if TELEGRAM_TARGET:
-    reminder_system.add_callback(send_telegram_reminder)
-    print(f"📱 OpenClaw Telegram reminders enabled for {TELEGRAM_TARGET}", file=sys.stderr)
-    logger.info(f"Telegram reminders enabled for target: {TELEGRAM_TARGET}")
-
-# Start reminder system
-reminder_system.start()
+    print(f"📱 OpenClaw Telegram enabled for {TELEGRAM_TARGET}", file=sys.stderr)
+    logger.info(f"Telegram enabled for target: {TELEGRAM_TARGET}")
 
 # ==================== FLASK APP FACTORY ====================
 
