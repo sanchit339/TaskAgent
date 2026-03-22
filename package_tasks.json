@@ -1,0 +1,14 @@
+[
+  {
+    "id": "0d4dc213-b411-4e0b-a3bc-28900838b850",
+    "title": "Test task",
+    "description": "",
+    "project": "Work",
+    "labels": [],
+    "priority": "MEDIUM",
+    "due_date": null,
+    "completed": false,
+    "completed_at": null,
+    "created_at": "2026-03-22T14:47:08.248202"
+  }
+]
