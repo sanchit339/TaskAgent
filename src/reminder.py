@@ -2,57 +2,26 @@
 import time
 import threading
 from datetime import datetime, timedelta
-from typing import Callable, List
+from typing import Any, Callable, List
 import os
 import subprocess
-import logging
 
-# =============================================================================
-# Logging Configuration
-# =============================================================================
+from .logging_utils import setup_logger
+from .constants import DEFAULT_CHECK_INTERVAL
 
-def setup_logger(name: str = "reminder", level: int = logging.INFO) -> logging.Logger:
-    """Configure and return a logger."""
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    
-    if logger.handlers:
-        return logger
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_format = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(message)s",
-        datefmt="%H:%M:%S"
-    )
-    console_handler.setFormatter(console_format)
-    
-    file_handler = logging.FileHandler("reminder.log")
-    file_handler.setLevel(logging.DEBUG)
-    file_format = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    file_handler.setFormatter(file_format)
-    
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-    
-    return logger
-
-logger = setup_logger()
+logger = setup_logger("reminder")
 
 
 class ReminderSystem:
-    def __init__(self, task_manager, check_interval: int = 30):
-        logger.info(f"Initializing ReminderSystem with check_interval={check_interval}s")
-        self.task_manager = task_manager
-        self.check_interval = check_interval
-        self.running = False
-        self.callbacks: List[Callable] = []
-        logger.debug(f"ReminderSystem initialized with {len(self.callbacks)} callbacks")
+    def __init__(self, task_manager, check_interval: int = DEFAULT_CHECK_INTERVAL):
+            logger.info(f"Initializing ReminderSystem with check_interval={check_interval}s")
+            self.task_manager = task_manager
+            self.check_interval = check_interval
+            self.running = False
+            self.callbacks: List[Callable] = []
+            logger.debug(f"ReminderSystem initialized with {len(self.callbacks)} callbacks")
     
-    def add_callback(self, callback: Callable):
+    def add_callback(self, callback: Callable[..., Any]) -> None:
         """Add a callback function to be called when reminder triggers"""
         logger.info(f"Adding callback: {callback.__name__}")
         self.callbacks.append(callback)
@@ -101,7 +70,9 @@ class ReminderSystem:
         
         # Try PowerShell (Windows)
         try:
-            subprocess.run(['powershell', '-Command', f'New-Object -TypeName System.Windows.Forms.NotifyIcon -ArgumentList | % {{ $_.Icon = [System.Drawing.SystemIcons]::Information; $_.BalloonTipTitle = "Task Manager"; $_.BalloonTipText = "{message}"; $_.ShowBalloonTip(10000) }}'], capture_output=True, check=False)
+            # Sanitize message to prevent command injection
+            sanitized_message = message.replace('"', '`"').replace("'", "''").replace('$', '`$').replace('`', '``')
+            subprocess.run(['powershell', '-Command', f'New-Object -TypeName System.Windows.Forms.NotifyIcon -ArgumentList | % {{ $_.Icon = [System.Drawing.SystemIcons]::Information; $_.BalloonTipTitle = "Task Manager"; $_.BalloonTipText = "{sanitized_message}"; $_.ShowBalloonTip(10000) }}'], capture_output=True, check=False)
             logger.debug("Notification sent via PowerShell (Windows)")
         except Exception as e:
             logger.debug(f"PowerShell not available: {e}")
