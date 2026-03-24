@@ -69,7 +69,7 @@ The tool expects JSON-RPC 2.0 formatted requests on stdin and outputs responses 
       "title": "Review Q1 report",
       "project": "Work",
       "priority": "HIGH",
-      "due_date": "2024-03-15"
+      "due_date": "2026-03-15"
     }
   }
 }
@@ -143,6 +143,10 @@ Then OpenClaw can make HTTP requests to `http://localhost:5000`.
 | POST | `/api/holidays` | Add a holiday |
 | POST | `/api/comp-off` | Add a comp-off day |
 | GET | `/api/projects` | List all projects |
+
+## Documentation
+
+For comprehensive documentation including architecture details, the development journey, and lessons learned, see [docs/notes.md](docs/notes.md).
 
 ## Logging
 

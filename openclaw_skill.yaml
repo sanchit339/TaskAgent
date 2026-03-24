@@ -54,12 +54,12 @@ tools:
               "project": "Work",
               "labels": ["review"],
               "priority": "HIGH",
-              "due_date": "2024-01-15",
+              "due_date": "2026-01-15",
               "due_time": "10:00:00",
               "recurrence": null,
               "completed": false,
               "completed_at": null,
-              "created_at": "2024-01-10T09:30:00",
+              "created_at": "2026-01-10T09:30:00",
               "reminders": [],
               "scheduled_time": null,
               "estimated_duration": 30
@@ -122,7 +122,7 @@ tools:
                 "title": "Review PR",
                 "project": "Work",
                 "priority": "HIGH",
-                "due_date": "2024-01-15",
+                "due_date": "2026-01-15",
                 "completed": false
               },
               {
@@ -130,7 +130,7 @@ tools:
                 "title": "Send weekly report",
                 "project": "Work",
                 "priority": "MEDIUM",
-                "due_date": "2024-01-15",
+                "due_date": "2026-01-15",
                 "completed": false
               }
             ],
@@ -201,13 +201,13 @@ tools:
 
   - name: CompleteTask
     description: Mark a task as completed by ID or title. Returns JSON confirmation.
-    endpoint: /api/tasks/complete
+    endpoint: /api/tasks/<task_id>/complete
     method: POST
     parameters:
       - name: task_id
         type: string
-        required: false
-        description: Full UUID of the task
+        required: true
+        description: Full UUID of the task (in URL path)
       - name: title
         type: string
         required: false
@@ -222,7 +222,7 @@ tools:
               "id": "550e8400-e29b-41d4-a716-446655440000",
               "title": "Review PR",
               "completed": true,
-              "completed_at": "2024-01-10T14:30:00"
+              "completed_at": "2026-01-10T14:30:00"
             }
           }
       error:
@@ -237,12 +237,13 @@ tools:
 
   - name: SetReminder
     description: Set a reminder for a task. Returns JSON with reminder time.
-    endpoint: /api/tasks/reminder
+    endpoint: /api/tasks/<task_id>/reminder
     method: POST
     parameters:
       - name: task_id
         type: string
-        required: false
+        required: true
+        description: Full UUID of the task (in URL path)
       - name: title
         type: string
         required: false
@@ -254,7 +255,7 @@ tools:
       - name: specific_time
         type: string
         required: false
-        description: Specific time in ISO format (e.g., "2024-01-15T09:00:00")
+        description: Specific time in ISO format (e.g., "2026-01-15T09:00:00")
     response:
       success:
         example: |
@@ -264,7 +265,7 @@ tools:
             "data": {
               "task_id": "550e8400-e29b-41d4-a716-446655440000",
               "reminder": {
-                "time": "2024-01-15T09:45:00",
+                "time": "2026-01-15T09:45:00",
                 "notified": false
               }
             }
@@ -289,20 +290,20 @@ tools:
               {
                 "id": "550e8400-e29b-41d4-a716-446655440000",
                 "title": "Team standup",
-                "scheduled_time": "2024-01-15T09:00:00",
+                "scheduled_time": "2026-01-15T09:00:00",
                 "estimated_duration": 15,
                 "project": "Work"
               },
               {
                 "id": "660e8400-e29b-41d4-a716-446655440001",
                 "title": "Review PR",
-                "scheduled_time": "2024-01-15T10:00:00",
+                "scheduled_time": "2026-01-15T10:00:00",
                 "estimated_duration": 30,
                 "project": "Work"
               }
             ],
             "meta": {
-              "date": "2024-01-15",
+              "date": "2026-01-15",
               "total_duration_minutes": 45
             }
           }
@@ -397,7 +398,7 @@ tools:
             "success": true,
             "message": "Holiday added",
             "data": {
-              "date": "2024-12-25",
+              "date": "2026-12-25",
               "name": "Christmas"
             }
           }
@@ -418,7 +419,7 @@ tools:
             "success": true,
             "message": "Comp-off day added",
             "data": {
-              "date": "2024-01-20",
+              "date": "2026-01-20",
               "type": "comp_off"
             }
           }

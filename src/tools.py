@@ -1,4 +1,5 @@
-""" OpenClaw Tool Definitions These functions will be registered as tools for OpenClaw to call """
+"""OpenClaw Tool Definitions These functions will be registered as tools for OpenClaw to call"""
+
 from typing import Any, Optional, List
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -18,9 +19,9 @@ class TaskTools:
         self.scheduler = scheduler
         # Note: Using system crons for reminders instead of internal ReminderSystem
         logger.debug("TaskTools initialized successfully")
-    
+
     # ==================== TASK CREATION TOOLS ====================
-    
+
     def create_task(
         self,
         title: str,
@@ -31,17 +32,17 @@ class TaskTools:
         priority: str = DEFAULT_PRIORITY,
         labels: List[str] = None,
         recurrence: str = None,
-        estimated_duration: int = DEFAULT_ESTIMATED_DURATION
+        estimated_duration: int = DEFAULT_ESTIMATED_DURATION,
     ) -> dict:
         """Create a new task"""
         logger.info(f"Creating task: '{title}' in project '{project}'")
-        
+
         from .task_manager import Priority, RecurrencePattern
-        
+
         # Parse priority
         priority_enum = Priority.from_string(priority)
         logger.debug(f"Priority: {priority_enum}")
-        
+
         # Parse due date
         due_dt = None
         if due_date:
@@ -51,13 +52,13 @@ class TaskTools:
                 time_dt = datetime.strptime(due_time, "%H:%M").time()
                 due_dt = due_dt.replace(hour=time_dt.hour, minute=time_dt.minute)
                 logger.debug(f"Due time set: {due_dt}")
-        
+
         # Parse recurrence
         recurrence_enum = None
         if recurrence:
             recurrence_enum = RecurrencePattern.from_string(recurrence)
             logger.debug(f"Recurrence: {recurrence_enum}")
-        
+
         # Create task
         task = self.task_manager.create_task(
             title=title,
@@ -67,16 +68,16 @@ class TaskTools:
             priority=priority,
             labels=labels or [],
             recurrence=recurrence,
-            estimated_duration=estimated_duration
+            estimated_duration=estimated_duration,
         )
-        
+
         logger.info(f"Task created with ID: {task.id}")
-        
+
         # Auto-schedule if due date is set
         if due_dt:
             logger.debug(f"Auto-scheduling task {task.id} for due date")
             self.scheduler.schedule_task(task.id)
-        
+
         task_dict = {
             "id": task.id,
             "title": task.title,
@@ -86,128 +87,112 @@ class TaskTools:
             "due_date": task.due_date.isoformat() if task.due_date else None,
             "labels": task.labels,
             "recurrence": task.recurrence,
-            "estimated_duration": task.estimated_duration
+            "estimated_duration": task.estimated_duration,
         }
-        
+
         return {
             "task": task_dict,
-            "message": f"✅ Task created: {title} (ID: {task.id})"
+            "message": f"✅ Task created: {title} (ID: {task.id})",
         }
-    
+
     def create_urgent_task(
-        self,
-        title: str,
-        due_date: str = None,
-        project: str = "Urgent"
+        self, title: str, due_date: str = None, project: str = "Urgent"
     ) -> dict:
         """Create a high-priority/urgent task"""
         logger.info(f"Creating urgent task: '{title}'")
         return self.create_task(
-            title=title,
-            project=project,
-            due_date=due_date,
-            priority="URGENT"
+            title=title, project=project, due_date=due_date, priority="URGENT"
         )
-    
-    def add_to_project(
-        self,
-        title: str,
-        project: str,
-        due_date: str = None
-    ) -> dict:
+
+    def add_to_project(self, title: str, project: str, due_date: str = None) -> dict:
         """Add task to a specific project"""
         logger.info(f"Adding task to project '{project}': '{title}'")
-        return self.create_task(
-            title=title,
-            project=project,
-            due_date=due_date
-        )
-    
+        return self.create_task(title=title, project=project, due_date=due_date)
+
     def create_recurring_task(
         self,
         title: str,
         recurrence: str,  # DAILY, WEEKLY, MONTHLY, WEEKDAYS
         time: str = "10:00",
-        project: str = "Inbox"
+        project: str = "Inbox",
     ) -> dict:
         """Create a recurring task"""
-        logger.info(f"Creating recurring task: '{title}' with recurrence '{recurrence}'")
+        logger.info(
+            f"Creating recurring task: '{title}' with recurrence '{recurrence}'"
+        )
         today = datetime.now().date()
         due_dt = datetime.combine(today, datetime.strptime(time, "%H:%M").time())
         return self.create_task(
-        title=title,
-        project=project,
-        due_date=due_dt.isoformat(),
-        recurrence=recurrence,
-        priority=DEFAULT_PRIORITY
+            title=title,
+            project=project,
+            due_date=due_dt.isoformat(),
+            recurrence=recurrence,
+            priority=DEFAULT_PRIORITY,
         )
-    
+
     # ==================== BATCH OPERATIONS ====================
-    
+
     def batch_create_tasks(
-        self,
-        task_list: List[str],
-        project: str = "Inbox",
-        due_date: str = None
+        self, task_list: List[str], project: str = "Inbox", due_date: str = None
     ) -> dict:
         """Create multiple tasks at once"""
         logger.info(f"Batch creating {len(task_list)} tasks in project '{project}'")
-        
+
         due_dt = None
         if due_date:
             due_dt = datetime.fromisoformat(due_date)
-        
+
         tasks = self.task_manager.batch_create_tasks(
-            titles=task_list,
-            project=project,
-            due_date=due_dt
+            titles=task_list, project=project, due_date=due_dt
         )
-        
+
         logger.info(f"Batch created {len(tasks)} tasks")
-        
+
         return {
             "tasks": [
-                {
-                    "id": t.id,
-                    "title": t.title,
-                    "project": t.project
-                }
-                for t in tasks
+                {"id": t.id, "title": t.title, "project": t.project} for t in tasks
             ],
             "count": len(tasks),
-            "message": f"✅ Created {len(tasks)} tasks in {project}"
+            "message": f"✅ Created {len(tasks)} tasks in {project}",
         }
-    
+
     # ==================== TASK MANAGEMENT TOOLS ====================
-    
+
     def complete_task(self, task_id: str = None, title: str = None) -> dict:
         """Mark a task as completed"""
         logger.info(f"Completing task - ID: {task_id}, Title: {title}")
-        
+
         if task_id:
-            task = self.task_manager.complete_task(task_id)
+            task = self.task_manager.get_task(task_id)
+            if not task:
+                logger.warning(f"Task not found: {task_id}")
+                return {
+                    "task": None,
+                    "ok": False,
+                    "message": f"❌ Task not found: {task_id}",
+                }
+            self.task_manager.complete_task(task_id)
             task_dict = {
                 "id": task.id,
                 "title": task.title,
                 "project": task.project,
-                "completed": task.completed
+                "completed": task.completed,
             }
             logger.info(f"Task completed: {task.id}")
-            return {
-                "task": task_dict,
-                "message": f"✅ Completed: {task.title}"
-            }
+            return {"task": task_dict, "message": f"✅ Completed: {task.title}"}
         elif title:
             # Find by title - require exact match (case-insensitive)
             tasks = self.task_manager.get_tasks(completed=False)
-            matching_tasks = [task for task in tasks if title.lower() == task.title.lower()]
-            
+            matching_tasks = [
+                task for task in tasks if title.lower() == task.title.lower()
+            ]
+
             if len(matching_tasks) == 0:
                 logger.warning(f"Task not found by title: {title}")
                 return {
                     "task": None,
                     "ok": False,
-                    "message": f"❌ Task not found: {title}"
+                    "message": f"❌ Task not found: {title}",
                 }
             elif len(matching_tasks) > 1:
                 # Multiple matches - require task_id to disambiguate
@@ -216,8 +201,8 @@ class TaskTools:
                 return {
                     "task": None,
                     "ok": False,
-                    "message": f"⚠️ Multiple tasks match '{title}'. Please use task_id to specify which one:\n" +
-                               "\n".join([f"- {t.id}: {t.title}" for t in matching_tasks])
+                    "message": f"⚠️ Multiple tasks match '{title}'. Please use task_id to specify which one:\n"
+                    + "\n".join([f"- {t.id}: {t.title}" for t in matching_tasks]),
                 }
             else:
                 # Exact match found
@@ -227,39 +212,30 @@ class TaskTools:
                     "id": task.id,
                     "title": task.title,
                     "project": task.project,
-                    "completed": task.completed
+                    "completed": task.completed,
                 }
                 logger.info(f"Task completed by title: {task.id}")
-                return {
-                    "task": task_dict,
-                    "message": f"✅ Completed: {task.title}"
-                }
+                return {"task": task_dict, "message": f"✅ Completed: {task.title}"}
         else:
             # Changed from bare return to else block
             logger.warning("complete_task called without task_id or title")
             return {
                 "task": None,
                 "ok": False,
-                "message": "❌ Please provide task_id or title"
+                "message": "❌ Please provide task_id or title",
             }
-    
+
     def delete_task(self, task_id: str) -> dict:
         """Delete a task"""
         logger.info(f"Deleting task: {task_id}")
-        
+
         if self.task_manager.delete_task(task_id):
             logger.info(f"Task deleted: {task_id}")
-            return {
-                "ok": True,
-                "message": f"🗑️ Task deleted (ID: {task_id})"
-            }
-        
+            return {"ok": True, "message": f"🗑️ Task deleted (ID: {task_id})"}
+
         logger.warning(f"Task not found for deletion: {task_id}")
-        return {
-            "ok": False,
-            "message": "❌ Task not found"
-        }
-    
+        return {"ok": False, "message": "❌ Task not found"}
+
     def list_tasks(
         self,
         project: str = None,
@@ -268,25 +244,27 @@ class TaskTools:
         overdue: bool = False,
         high_priority: bool = False,
         limit: int = None,
-        offset: int = 0
+        offset: int = 0,
     ) -> dict:
         """List tasks with filters, returning compact JSON structure"""
-        logger.debug(f"Listing tasks - project: {project}, today: {today}, overdue: {overdue}, high_priority: {high_priority}")
-        
+        logger.debug(
+            f"Listing tasks - project: {project}, today: {today}, overdue: {overdue}, high_priority: {high_priority}"
+        )
+
         tasks = self.task_manager.get_tasks(
             project=project,
             completed=None if show_completed else False,
             due_today=today,
             overdue=overdue,
-            high_priority=high_priority
+            high_priority=high_priority,
         )
-        
+
         # Apply offset and limit
         if offset:
             tasks = tasks[offset:]
         if limit:
             tasks = tasks[:limit]
-        
+
         # Build compact task list
         task_list = []
         for task in tasks:
@@ -296,268 +274,286 @@ class TaskTools:
                 "project": task.project,
                 "priority": task.priority,
                 "completed": task.completed,
-                "due_date": task.due_date.isoformat() if task.due_date else None
+                "due_date": task.due_date.isoformat() if task.due_date else None,
             }
             task_list.append(task_dict)
 
         logger.debug(f"Returning {len(task_list)} tasks")
         return {"tasks": task_list, "total": len(task_list)}
 
-# ==================== REMINDER TOOLS ====================
+    # ==================== REMINDER TOOLS ====================
 
-def set_reminder(
-    self,
-    task_id: str = None,
-    title: str = None,
-    minutes_before: int = 30,
-    specific_time: str = None
-) -> dict:
-    """Set a reminder for a task using system crons (more reliable than internal reminder system)"""
-    logger.info(f"Setting reminder - task_id: {task_id}, title: {title}, minutes_before: {minutes_before}")
-
-    target_id = task_id
-    target_task = None
-    
-    if not target_id and title:
-        # Find task by title - require exact match (case-insensitive)
-        tasks = self.task_manager.get_tasks(completed=False)
-        matching_tasks = [task for task in tasks if title.lower() == task.title.lower()]
-
-        if len(matching_tasks) == 0:
-            logger.warning(f"Task not found for reminder: {title}")
-            return {
-                "ok": False,
-                "message": f"❌ Task not found: {title}"
-            }
-        elif len(matching_tasks) > 1:
-            # Multiple matches - require task_id to disambiguate
-            task_list = [{"id": t.id, "title": t.title} for t in matching_tasks]
-            logger.warning(f"Multiple tasks match title '{title}': {task_list}")
-            return {
-                "ok": False,
-                "message": f"⚠️ Multiple tasks match '{title}'. Please use task_id to specify which one:\n" +
-                "\n".join([f"- {t.id}: {t.title}" for t in matching_tasks])
-            }
-        else:
-            # Exact match found
-            target_id = matching_tasks[0].id
-            target_task = matching_tasks[0]
-    elif target_id:
-        target_task = self.task_manager.get_task(target_id)
-
-    if not target_id or not target_task:
-        logger.warning(f"Task not found for reminder: {title or task_id}")
-        return {
-            "ok": False,
-            "message": "❌ Task not found"
-        }
-
-    # Calculate reminder time
-    if specific_time:
-        reminder_time = datetime.fromisoformat(specific_time)
-    elif target_task.due_date:
-        reminder_time = target_task.due_date - timedelta(minutes=minutes_before)
-    else:
-        # Default to now + 30 minutes if no due date
-        reminder_time = datetime.now() + timedelta(minutes=30)
-
-    # Create a system cron job instead of using internal reminder system
-    # This is more reliable as it persists and runs independently of the app
-    try:
+    def set_reminder(
+        self,
+        task_id: str = None,
+        title: str = None,
+        minutes_before: int = 30,
+        specific_time: str = None,
+    ) -> dict:
+        """Set a reminder for a task using system crons (workspace .crontab)"""
         import subprocess
 
-        # Get the script directory
+        logger.info(
+            f"Setting reminder - task_id: {task_id}, title: {title}, minutes_before: {minutes_before}"
+        )
+
+        CRONTAB_FILE = "/home/sanchitingale339/.openclaw/workspace/.crontab"
+
+        target_id = task_id
+        target_task = None
+
+        if not target_id and title:
+            tasks = self.task_manager.get_tasks(completed=False)
+            matching_tasks = [
+                task for task in tasks if title.lower() == task.title.lower()
+            ]
+
+            if len(matching_tasks) == 0:
+                logger.warning(f"Task not found for reminder: {title}")
+                return {"ok": False, "message": f"❌ Task not found: {title}"}
+            elif len(matching_tasks) > 1:
+                task_list = [{"id": t.id, "title": t.title} for t in matching_tasks]
+                logger.warning(f"Multiple tasks match title '{title}': {task_list}")
+                return {
+                    "ok": False,
+                    "message": f"⚠️ Multiple tasks match '{title}'. Please use task_id to specify which one:\n"
+                    + "\n".join([f"- {t.id}: {t.title}" for t in matching_tasks]),
+                }
+            else:
+                target_id = matching_tasks[0].id
+                target_task = matching_tasks[0]
+        elif target_id:
+            target_task = self.task_manager.get_task(target_id)
+
+        if not target_id or not target_task:
+            logger.warning(f"Task not found for reminder: {title or task_id}")
+            return {"ok": False, "message": "❌ Task not found"}
+
+        # Calculate reminder time
+        if specific_time:
+            reminder_time = datetime.fromisoformat(specific_time)
+        elif target_task.due_date:
+            reminder_time = target_task.due_date - timedelta(minutes=minutes_before)
+        else:
+            reminder_time = datetime.now() + timedelta(minutes=30)
+
+        # Create a system cron job via workspace .crontab
+        try:
+            script_dir = Path(__file__).parent.parent
+            reminder_script = script_dir / "reminder_cron.py"
+
+            if not reminder_script.exists():
+                self._create_reminder_cron_script()
+
+            # Format time for cron (minute hour day month dayofweek)
+            cron_minute = reminder_time.minute
+            cron_hour = reminder_time.hour
+            cron_day = reminder_time.day
+            cron_month = reminder_time.month
+            cron_dow = "*"
+
+            cron_comment = f"TASK_REMINDER_{target_id}_{int(reminder_time.timestamp())}"
+            cron_cmd = f"{cron_minute} {cron_hour} {cron_day} {cron_month} {cron_dow}"
+            full_cron = f"{cron_cmd} /usr/bin/python3 {reminder_script} --task-id {target_id}  # {cron_comment}"
+
+            # Read workspace .crontab (not system crontab directly)
+            crontab_path = Path(CRONTAB_FILE)
+            if crontab_path.exists():
+                current = crontab_path.read_text()
+            else:
+                current = ""
+
+            # Remove any existing reminder for this task
+            lines = current.splitlines()
+            filtered = [l for l in lines if f"TASK_REMINDER_{target_id}" not in l]
+
+            # Add new reminder
+            filtered.append(full_cron)
+            crontab_path.write_text("\n".join(filtered) + "\n")
+
+            # Sync to system crontab
+            subprocess.run(
+                ["crontab", str(crontab_path)],
+                timeout=10,
+                check=True,
+                capture_output=True,
+            )
+
+            logger.info(f"Cron job created for task {target_id} at {reminder_time}")
+            return {
+                "ok": True,
+                "reminder_time": reminder_time.isoformat(),
+                "message": f"🔔 Reminder set for {reminder_time.strftime('%Y-%m-%d %H:%M')}\n"
+                f"Task: {target_task.title}",
+            }
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to create cron: {e}")
+            return {"ok": False, "message": f"❌ Failed to create cron: {str(e)}"}
+        except Exception as e:
+            logger.error(f"Error setting reminder: {e}")
+            return {"ok": False, "message": f"❌ Error: {str(e)}"}
+
+    def _create_reminder_cron_script(self):
+        """Create the reminder script that cron will call — sends via Telegram and self-cleans."""
         script_dir = Path(__file__).parent.parent
         reminder_script = script_dir / "reminder_cron.py"
-        
-        # Create the reminder script if it doesn't exist
-        if not reminder_script.exists():
-            self._create_reminder_cron_script()
-        
-        # Format time for cron (minute hour day month dayofweek)
-        cron_minute = reminder_time.minute
-        cron_hour = reminder_time.hour
-        cron_day = reminder_time.day
-        cron_month = reminder_time.month
-        cron_dow = "*"  # Any day of week
-        
-        # Create unique cron comment to identify this reminder
-        cron_comment = f"TASK_REMINDER_{target_id}_{int(reminder_time.timestamp())}"
-        
-        # Build the cron command
-        cron_cmd = f"{cron_minute} {cron_hour} {cron_day} {cron_month} {cron_dow}"
-        full_cron = f"{cron_cmd} cd {script_dir} && python3 {reminder_script} --task-id {target_id} #{cron_comment}"
-        
-        # Add to crontab
-        result = subprocess.run(
-            ["crontab", "-l"],
-            capture_output=True,
-            text=True
-        )
-        
-        current_crons = result.stdout if result.returncode == 0 else ""
-        
-        # Remove any existing cron for this task
-        new_crons = "\n".join([
-            line for line in current_crons.split("\n")
-            if cron_comment not in line
-        ])
-        
-        # Add new cron
-        if new_crons.strip():
-            new_crons += "\n" + full_cron
-        else:
-            new_crons = full_cron
-        
-        # Set new crontab
-        subprocess.run(
-            ["crontab", "-"],
-            input=new_crons,
-            text=True,
-            check=True
-        )
-        
-        logger.info(f"Cron job created for task {target_id} at {reminder_time}")
-        return {
-            "ok": True,
-            "reminder_time": reminder_time.isoformat(),
-            "message": f"🔔 Cron reminder set for {reminder_time.strftime('%Y-%m-%d %H:%M')}\n"
-                      f"Task: {target_task.title}"
-        }
-        
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to create cron: {e}")
-        return {
-            "ok": False,
-            "message": f"❌ Failed to create cron: {str(e)}"
-        }
-    except Exception as e:
-        logger.error(f"Error setting reminder: {e}")
-        return {
-            "ok": False,
-            "message": f"❌ Error: {str(e)}"
-        }
 
-def _create_reminder_cron_script(self):
-    """Create the reminder script that cron will call"""
-    script_dir = Path(__file__).parent.parent
-    reminder_script = script_dir / "reminder_cron.py"
-    
-    script_content = '''#!/usr/bin/env python3
-    """Reminder script called by system cron"""
-    import sys
-    import os
-    import argparse
-    from pathlib import Path
-    
-    # Get the project root directory (parent of src)
-    SCRIPT_DIR = Path(__file__).parent
-    PROJECT_ROOT = SCRIPT_DIR.parent
-    
-    # Add project root and src to path
-    sys.path.insert(0, str(PROJECT_ROOT))
-    sys.path.insert(0, str(PROJECT_ROOT / "src"))
-    
-    from src.task_manager import TaskManager
-    from src.logging_utils import setup_logger
-    
-    logger = setup_logger("reminder_cron")
-    
-    def main():
-        parser = argparse.ArgumentParser(description="Task reminder cron script")
-        parser.add_argument("--task-id", required=True, help="Task ID to check")
-        args = parser.parse_args()
-        
-        # Initialize task manager - look in project root
-        tasks_file = PROJECT_ROOT / "my_tasks.json"
-        task_manager = TaskManager(str(tasks_file))
-        
-        # Get the task
-        task = task_manager.get_task(args.task_id)
-        if not task:
-            logger.error(f"Task not found: {args.task_id}")
-            return
-        
-        if task.completed:
-            logger.info(f"Task {args.task_id} already completed, skipping reminder")
-            return
-        
-        # Send notification
-        message = f"🔔 Reminder: {task.title}"
-        if task.due_date:
-            message += f"\\nDue: {task.due_date.strftime('%Y-%m-%d %H:%M')}"
-        if task.project != "Inbox":
-            message += f"\\nProject: {task.project}"
-        
-        print(message)
+        script_content = '''#!/usr/bin/env python3
+"""Reminder script called by system cron — sends via Telegram and self-cleans."""
+import sys
+import os
+import subprocess
+import argparse
+import logging
+from datetime import datetime
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from src.task_manager import TaskManager
+from src.logging_utils import setup_logger
+
+logger = setup_logger("reminder_cron")
+
+OPENCLAW_BIN = "/home/sanchitingale339/.npm-global/bin/openclaw"
+TELEGRAM_TARGET = "1489927668"
+CRONTAB_FILE = "/home/sanchitingale339/.openclaw/workspace/.crontab"
+
+
+def send_telegram(message: str, retries: int = 3) -> bool:
+    """Send message via openclaw message send."""
+    for attempt in range(1, retries + 1):
+        try:
+            result = subprocess.run(
+                [OPENCLAW_BIN, "message", "send", "--target", TELEGRAM_TARGET, "--message", message],
+                timeout=30,
+                capture_output=True,
+            )
+            if result.returncode == 0:
+                return True
+            logger.warning(f"Telegram send attempt {attempt}/{retries} failed (rc={result.returncode})")
+        except Exception as e:
+            logger.warning(f"Telegram send attempt {attempt}/{retries} error: {e}")
+        if attempt < retries:
+            import time
+            time.sleep(5 * attempt)
+    return False
+
+
+def cleanup_crontab(task_id: str):
+    """Remove this reminder's entry from workspace crontab."""
+    try:
+        crontab_path = Path(CRONTAB_FILE)
+        if crontab_path.exists():
+            lines = crontab_path.read_text().splitlines()
+            filtered = [l for l in lines if f"TASK_REMINDER_{task_id}" not in l]
+            crontab_path.write_text("\\n".join(filtered) + "\\n")
+            subprocess.run(["crontab", str(crontab_path)], timeout=10, capture_output=True)
+            logger.info(f"Cleaned crontab entry for task {task_id}")
+    except Exception as e:
+        logger.warning(f"Failed to clean crontab: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Task reminder cron script")
+    parser.add_argument("--task-id", required=True, help="Task ID to check")
+    args = parser.parse_args()
+
+    tasks_file = SCRIPT_DIR / "my_tasks.json"
+    task_manager = TaskManager(str(tasks_file))
+
+    task = task_manager.get_task(args.task_id)
+    if not task:
+        logger.error(f"Task not found: {args.task_id}")
+        cleanup_crontab(args.task_id)
+        return
+
+    if task.completed:
+        logger.info(f"Task {args.task_id} already completed, skipping reminder")
+        cleanup_crontab(args.task_id)
+        return
+
+    message = f"\\U0001f514 Reminder: {task.title}"
+    if task.due_date:
+        message += f"\\nDue: {task.due_date.strftime('%Y-%m-%d %H:%M')}"
+    if task.project != "Inbox":
+        message += f"\\nProject: {task.project}"
+
+    if send_telegram(message):
         logger.info(f"Reminder sent for task: {task.id} - {task.title}")
-    
-    if __name__ == "__main__":
-        main()
-    '''
-    
-    reminder_script.write_text(script_content)
-    reminder_script.chmod(0o755)
-    logger.info(f"Created reminder cron script: {reminder_script}")
-    
+    else:
+        logger.error(f"Failed to send Telegram reminder for task: {task.id}")
+
+    cleanup_crontab(args.task_id)
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+        reminder_script.write_text(script_content)
+        reminder_script.chmod(0o755)
+        logger.info(f"Created reminder cron script: {reminder_script}")
+
     # ==================== SCHEDULING TOOLS ====================
-    
+
     def get_schedule(self, date: str = None) -> dict:
         """Get the schedule for a specific day"""
         logger.debug(f"Getting schedule for date: {date}")
-        
+
         if date:
             check_date = datetime.fromisoformat(date)
         else:
             check_date = datetime.now()
-        
+
         schedule_data = self.scheduler.get_daily_schedule(check_date)
-        
+
         if not schedule_data:
             logger.debug("No tasks scheduled for the day")
             return {
                 "date": check_date.isoformat(),
                 "schedule": [],
-                "message": "No tasks scheduled for this day"
+                "message": "No tasks scheduled for this day",
             }
-        
+
         schedule_list = []
         for item in schedule_data:
-            schedule_list.append({
-                "time": item["time"],
-                "task": item["task"],
-                "duration": item["duration"],
-                "project": item["project"]
-            })
-        
+            schedule_list.append(
+                {
+                    "time": item["time"],
+                    "task": item["task"],
+                    "duration": item["duration"],
+                    "project": item["project"],
+                }
+            )
+
         logger.debug(f"Returning {len(schedule_list)} scheduled tasks")
         return {
             "date": check_date.isoformat(),
             "schedule": schedule_list,
-            "message": f"📅 Schedule for {check_date.strftime('%Y-%m-%d')}"
+            "message": f"📅 Schedule for {check_date.strftime('%Y-%m-%d')}",
         }
-    
+
     def get_schedule_suggestions(self) -> dict:
         """Get AI schedule suggestions"""
         logger.debug("Getting schedule suggestions")
-        
+
         suggestions = self.scheduler.suggest_schedule()
-        return {
-            "suggestions": suggestions,
-            "message": "Here are schedule suggestions"
-        }
-    
+        return {"suggestions": suggestions, "message": "Here are schedule suggestions"}
+
     def update_routine(
         self,
         work_start: str = None,
         work_end: str = None,
         work_days: List[int] = None,
         lunch_start: str = None,
-        lunch_end: str = None
+        lunch_end: str = None,
     ) -> dict:
         """Update daily routine settings"""
         logger.info("Updating routine settings")
-        
+
         config = self.scheduler.config
         if work_start:
             config.routine.work_start = work_start
@@ -574,62 +570,55 @@ def _create_reminder_cron_script(self):
         if lunch_end:
             config.routine.lunch_end = lunch_end
             logger.debug(f"Lunch end set to: {lunch_end}")
-        
+
         config.save()
         logger.info("Routine settings saved")
-        
-        return {
-            "ok": True,
-            "message": "✅ Routine updated"
-        }
-    
+
+        return {"ok": True, "message": "✅ Routine updated"}
+
     def add_holiday(self, date: str, name: str = "") -> dict:
         """Add a holiday"""
         logger.info(f"Adding holiday: {date} - {name}")
-        
+
         holiday_date = datetime.fromisoformat(date)
         self.scheduler.config.add_holiday(holiday_date, name)
-        
+
         logger.info(f"Holiday added: {date}")
         return {
             "ok": True,
             "date": date,
             "name": name,
-            "message": f"✅ Holiday added: {name or date}"
+            "message": f"✅ Holiday added: {name or date}",
         }
-    
+
     def add_comp_off(self, date: str) -> dict:
         """Add a comp-off day"""
         logger.info(f"Adding comp-off: {date}")
-        
+
         co_date = datetime.fromisoformat(date)
         self.scheduler.config.add_comp_off(co_date)
-        
+
         logger.info(f"Comp-off added: {date}")
-        return {
-            "ok": True,
-            "date": date,
-            "message": f"✅ Comp-off added: {date}"
-        }
-    
+        return {"ok": True, "date": date, "message": f"✅ Comp-off added: {date}"}
+
     # ==================== PROJECT TOOLS ====================
-    
+
     def list_projects(self) -> dict:
         """List all projects"""
         logger.debug("Listing all projects")
-        
+
         projects = self.task_manager.projects
         logger.debug(f"Found {len(projects)} projects")
-        
+
         return {
             "projects": sorted(list(projects)),
-            "message": f"📁 Projects: {', '.join(sorted(projects))}"
+            "message": f"📁 Projects: {', '.join(sorted(projects))}",
         }
-    
+
     def get_task_details(self, task_id: str = None, title: str = None) -> dict:
         """Get detailed info about a task"""
         logger.debug(f"Getting task details - task_id: {task_id}, title: {title}")
-    
+
         if task_id:
             task = self.task_manager.get_task(task_id)
         elif title:
@@ -641,18 +630,12 @@ def _create_reminder_cron_script(self):
                     break
         else:
             logger.warning("get_task_details called without task_id or title")
-            return {
-                "ok": False,
-                "message": "❌ Please provide task_id or title"
-            }
-    
+            return {"ok": False, "message": "❌ Please provide task_id or title"}
+
         if not task:
             logger.warning(f"Task not found: {task_id or title}")
-            return {
-                "ok": False,
-                "message": "❌ Task not found"
-            }
-    
+            return {"ok": False, "message": "❌ Task not found"}
+
         details = {
             "id": task.id,
             "title": task.title,
@@ -663,16 +646,17 @@ def _create_reminder_cron_script(self):
             "due_date": task.due_date.isoformat() if task.due_date else None,
             "labels": task.labels,
             "estimated_duration": task.estimated_duration,
-            "scheduled_time": task.scheduled_time.strftime('%H:%M') if task.scheduled_time else None,
-            "reminders": [r.time.strftime('%H:%M') for r in task.reminders] if task.reminders else []
+            "scheduled_time": task.scheduled_time.strftime("%H:%M")
+            if task.scheduled_time
+            else None,
+            "reminders": [r.get("time", "") for r in task.reminders]
+            if task.reminders
+            else [],
         }
-        
+
         logger.debug(f"Returning details for task: {task.id}")
-        return {
-            "task": details,
-            "message": f"📝 {task.title}"
-        }
-    
+        return {"task": details, "message": f"📝 {task.title}"}
+
     def get_all_tools(self) -> dict:
         """Get list of all available tools"""
         logger.debug("Getting all tools")
@@ -681,18 +665,27 @@ def _create_reminder_cron_script(self):
             {"name": "create_urgent_task", "description": "Create an urgent task"},
             {"name": "add_to_project", "description": "Add task to a project"},
             {"name": "create_recurring_task", "description": "Create a recurring task"},
-            {"name": "batch_create_tasks", "description": "Create multiple tasks at once"},
+            {
+                "name": "batch_create_tasks",
+                "description": "Create multiple tasks at once",
+            },
             {"name": "complete_task", "description": "Mark a task as completed"},
             {"name": "delete_task", "description": "Delete a task"},
             {"name": "list_tasks", "description": "List tasks with optional filters"},
             {"name": "set_reminder", "description": "Set a reminder for a task"},
             {"name": "get_schedule", "description": "Get schedule for a specific date"},
-            {"name": "get_schedule_suggestions", "description": "Get AI schedule suggestions"},
+            {
+                "name": "get_schedule_suggestions",
+                "description": "Get AI schedule suggestions",
+            },
             {"name": "update_routine", "description": "Update daily routine"},
             {"name": "add_holiday", "description": "Add a holiday"},
             {"name": "add_comp_off", "description": "Add a comp-off day"},
             {"name": "list_projects", "description": "List all projects"},
-            {"name": "get_task_details", "description": "Get detailed task information"},
+            {
+                "name": "get_task_details",
+                "description": "Get detailed task information",
+            },
         ]
         return {
             "tools": tools,

@@ -21,6 +21,7 @@ coverage.xml
 
 # Task Manager specific
 my_tasks.json
+package_tasks.json
 task_manager_api.md
 CodeBase_info.md
 Sample.md

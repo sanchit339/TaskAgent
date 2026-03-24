@@ -1,5 +1,6 @@
-""" AI-powered scheduler that integrates with OpenClaw
-Considers: work days, weekends, holidays, comp-offs, available time """
+"""AI-powered scheduler that integrates with OpenClaw
+Considers: work days, weekends, holidays, comp-offs, available time"""
+
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import json
@@ -10,21 +11,26 @@ from .logging_utils import setup_logger
 
 logger = setup_logger("scheduler")
 
+
 @dataclass
 class TimeSlot:
     start: datetime
     end: datetime
     available: bool = True
 
+
 @dataclass
 class DailyRoutine:
     work_start: str = "09:00"  # e.g., "09:00"
-    work_end: str = "18:00"   # e.g., "18:00"
-    work_days: List[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])  # Monday=0, Sunday=6
+    work_end: str = "18:00"  # e.g., "18:00"
+    work_days: List[int] = field(
+        default_factory=lambda: [0, 1, 2, 3, 4]
+    )  # Monday=0, Sunday=6
     lunch_start: str = "13:00"
     lunch_end: str = "14:00"
     sleep_start: str = "23:00"
     sleep_end: str = "07:00"
+
 
 class SchedulerConfig:
     def __init__(self, config_path: str = "config.json"):
@@ -35,26 +41,28 @@ class SchedulerConfig:
         self.comp_offs: List[str] = []  # ISO format dates
         self.default_task_duration = 30  # minutes
         self.load()
-    
+
     def load(self):
         if self.config_path.exists():
             try:
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, "r") as f:
                     data = json.load(f)
-                routine_data = data.get('routine', {})
+                routine_data = data.get("routine", {})
                 self.routine = DailyRoutine(
-                    work_start=routine_data.get('work_start', '09:00'),
-                    work_end=routine_data.get('work_end', '18:00'),
-                    work_days=routine_data.get('work_days', [0, 1, 2, 3, 4]),
-                    lunch_start=routine_data.get('lunch_start', '13:00'),
-                    lunch_end=routine_data.get('lunch_end', '14:00'),
-                    sleep_start=routine_data.get('sleep_start', '23:00'),
-                    sleep_end=routine_data.get('sleep_end', '07:00')
+                    work_start=routine_data.get("work_start", "09:00"),
+                    work_end=routine_data.get("work_end", "18:00"),
+                    work_days=routine_data.get("work_days", [0, 1, 2, 3, 4]),
+                    lunch_start=routine_data.get("lunch_start", "13:00"),
+                    lunch_end=routine_data.get("lunch_end", "14:00"),
+                    sleep_start=routine_data.get("sleep_start", "23:00"),
+                    sleep_end=routine_data.get("sleep_end", "07:00"),
                 )
-                self.holidays = data.get('holidays', [])
-                self.comp_offs = data.get('comp_offs', [])
-                self.default_task_duration = data.get('default_task_duration', 30)
-                logger.info(f"Config loaded | holidays: {len(self.holidays)}, comp_offs: {len(self.comp_offs)}")
+                self.holidays = data.get("holidays", [])
+                self.comp_offs = data.get("comp_offs", [])
+                self.default_task_duration = data.get("default_task_duration", 30)
+                logger.info(
+                    f"Config loaded | holidays: {len(self.holidays)}, comp_offs: {len(self.comp_offs)}"
+                )
             except Exception as e:
                 logger.error(f"Failed to load config: {e}")
         else:
@@ -63,20 +71,20 @@ class SchedulerConfig:
     def save(self):
         try:
             data = {
-                'routine': {
-                    'work_start': self.routine.work_start,
-                    'work_end': self.routine.work_end,
-                    'work_days': self.routine.work_days,
-                    'lunch_start': self.routine.lunch_start,
-                    'lunch_end': self.routine.lunch_end,
-                    'sleep_start': self.routine.sleep_start,
-                    'sleep_end': self.routine.sleep_end
+                "routine": {
+                    "work_start": self.routine.work_start,
+                    "work_end": self.routine.work_end,
+                    "work_days": self.routine.work_days,
+                    "lunch_start": self.routine.lunch_start,
+                    "lunch_end": self.routine.lunch_end,
+                    "sleep_start": self.routine.sleep_start,
+                    "sleep_end": self.routine.sleep_end,
                 },
-                'holidays': self.holidays,
-                'comp_offs': self.comp_offs,
-                'default_task_duration': self.default_task_duration
+                "holidays": self.holidays,
+                "comp_offs": self.comp_offs,
+                "default_task_duration": self.default_task_duration,
             }
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(data, f, indent=2)
             logger.debug(f"Config saved to {self.config_path}")
         except Exception as e:
@@ -85,15 +93,15 @@ class SchedulerConfig:
     def is_work_day(self, date: datetime) -> bool:
         """Check if date is a work day (considering holidays and comp-offs)"""
         date_str = date.strftime("%Y-%m-%d")
-        
+
         # Check if it's a comp-off (treated as work day)
         if date_str in self.comp_offs:
             return True
-        
+
         # Check if it's a holiday (not a work day)
         if date_str in self.holidays:
             return False
-        
+
         # Check if it's a regular work day
         is_work = date.weekday() in self.routine.work_days
         logger.debug(f"is_work_day({date_str}): {is_work}")
@@ -119,6 +127,7 @@ class SchedulerConfig:
             self.save()
             logger.info(f"Added comp-off: {date_str}")
 
+
 class AIScheduler:
     def __init__(self, task_manager, config: SchedulerConfig = None):
         logger.info("Initializing AIScheduler")
@@ -128,10 +137,12 @@ class AIScheduler:
 
     def get_available_slots(self, date: datetime, duration: int = 30) -> List[TimeSlot]:
         """Get available time slots for a given date"""
-        logger.debug(f"Getting available slots for {date.date()}, duration: {duration}min")
-        
+        logger.debug(
+            f"Getting available slots for {date.date()}, duration: {duration}min"
+        )
+
         slots = []
-        
+
         if not self.config.is_work_day(date):
             logger.debug(f"Skipping {date.date()} - not a work day")
             return slots  # No work on non-work days
@@ -159,40 +170,44 @@ class AIScheduler:
         # Remove slots that have already passed
         now = datetime.now()
         slots = [s for s in slots if s.end > now]
-        
+
         logger.debug(f"Found {len(slots)} available slots")
         return slots
 
-    def find_best_slot(self, duration: int = 30, earliest_date: datetime = None) -> Optional[datetime]:
+    def find_best_slot(
+        self, duration: int = 30, earliest_date: datetime = None
+    ) -> Optional[datetime]:
         """Find the best available slot for a task"""
         if earliest_date is None:
             earliest_date = datetime.now()
-        
-        logger.info(f"Finding best slot for {duration}min task, earliest: {earliest_date.date()}")
-        
+
+        logger.info(
+            f"Finding best slot for {duration}min task, earliest: {earliest_date.date()}"
+        )
+
         # Check the next 14 days
         for i in range(14):
             check_date = earliest_date + timedelta(days=i)
-            
+
             if not self.config.is_work_day(check_date):
                 logger.debug(f"Skipping {check_date.date()} - not a work day")
                 continue
-            
+
             slots = self.get_available_slots(check_date, duration)
-            
+
             for slot in slots:
                 slot_duration = (slot.end - slot.start).total_seconds() / 60
                 if slot_duration >= duration:
                     logger.info(f"Found slot: {slot.start.strftime('%Y-%m-%d %H:%M')}")
                     return slot.start
-        
+
         logger.warning(f"No available slot found for {duration}min task")
         return None
 
     def schedule_task(self, task_id: str, scheduled_time: datetime = None) -> bool:
         """Manually schedule a task or auto-schedule"""
         logger.info(f"Scheduling task: {task_id}")
-        
+
         task = self.task_manager.get_task(task_id)
         if not task:
             logger.error(f"Task not found: {task_id}")
@@ -200,28 +215,25 @@ class AIScheduler:
 
         if scheduled_time is None:
             # Auto-schedule
-            scheduled_time = self.find_best_slot(
-                task.estimated_duration, 
-                task.due_date
-            )
+            scheduled_time = self.find_best_slot(task.estimated_duration, task.due_date)
             if scheduled_time:
                 logger.info(f"Auto-scheduled task {task_id} for {scheduled_time}")
             else:
                 logger.warning(f"Could not find slot for task {task_id}")
-        
+
         if scheduled_time:
             self.task_manager.update_task(task_id, scheduled_time=scheduled_time)
             return True
-        
+
         return False
 
     def get_daily_schedule(self, date: datetime = None) -> List[Dict]:
         """Get the schedule for a specific day"""
         if date is None:
             date = datetime.now()
-        
+
         logger.debug(f"Getting daily schedule for {date.date()}")
-        
+
         try:
             tasks = self.task_manager.get_tasks(due_today=True, completed=False)
         except AttributeError as e:
@@ -232,10 +244,12 @@ class AIScheduler:
         try:
             # Map priority strings to numeric values for sorting
             priority_map = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "URGENT": 3}
-            tasks.sort(key=lambda t: (
-                -priority_map.get(str(t.priority).upper(), 1),  # Default to MEDIUM
-                t.scheduled_time or datetime.max
-            ))
+            tasks.sort(
+                key=lambda t: (
+                    -priority_map.get(str(t.priority).upper(), 1),  # Default to MEDIUM
+                    t.scheduled_time or datetime.max,
+                )
+            )
         except Exception as e:
             logger.warning(f"Error sorting tasks: {e}")
 
@@ -245,13 +259,15 @@ class AIScheduler:
 
         for task in tasks:
             if task.scheduled_time:
-                schedule.append({
-                    "time": task.scheduled_time.strftime("%H:%M"),
-                    "task": task.title,
-                    "duration": task.estimated_duration,
-                    "priority": getattr(task.priority, 'name', 'NONE'),
-                    "project": task.project
-                })
+                schedule.append(
+                    {
+                        "time": task.scheduled_time.strftime("%H:%M"),
+                        "task": task.title,
+                        "duration": task.estimated_duration,
+                        "priority": str(task.priority) if task.priority else "MEDIUM",
+                        "project": task.project,
+                    }
+                )
 
         logger.debug(f"Daily schedule: {len(schedule)} tasks")
         return schedule
@@ -259,14 +275,14 @@ class AIScheduler:
     def suggest_schedule(self) -> str:
         """Generate a natural language schedule suggestion"""
         logger.debug("Generating schedule suggestion")
-        
+
         today = datetime.now()
         schedule = self.get_daily_schedule(today)
-        
+
         try:
-            overdue = self.task_manager.get_overdue_tasks()
-        except AttributeError:
-            logger.warning("task_manager missing get_overdue_tasks method")
+            overdue = self.task_manager.get_tasks(overdue=True)
+        except Exception:
+            logger.warning("Error getting overdue tasks")
             overdue = []
 
         suggestions = []
@@ -277,8 +293,16 @@ class AIScheduler:
         if schedule:
             suggestions.append("\n📅 Today's Schedule:")
             for item in schedule:
-                emoji = "🔴" if item["priority"] == "URGENT" else "🟡" if item["priority"] == "HIGH" else "🟢"
-                suggestions.append(f" {emoji} {item['time']} - {item['task']} ({item['duration']}min)")
+                emoji = (
+                    "🔴"
+                    if item["priority"] == "URGENT"
+                    else "🟡"
+                    if item["priority"] == "HIGH"
+                    else "🟢"
+                )
+                suggestions.append(
+                    f" {emoji} {item['time']} - {item['task']} ({item['duration']}min)"
+                )
         else:
             suggestions.append("\n✅ No tasks scheduled for today!")
 
